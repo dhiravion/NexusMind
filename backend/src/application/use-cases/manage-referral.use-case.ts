@@ -20,10 +20,9 @@ export interface ReferralListFilters {
 
 export interface ReferralStats {
   readonly total: number;
-  readonly pending: number; // CREATED, SENT
-  readonly inProgress: number; // IN_PROGRESS, REACHED_FACILITY
+  readonly pending: number; // REFERRAL_INITIATED, ACCEPTED, BED_RESERVATION, PATIENT_ARRIVAL, BED_ALLOTTED, TREATMENT_ONGOING
+  readonly rejected: number; // REJECTED
   readonly completed: number; // COMPLETED
-  readonly cancelled: number; // CANCELLED
 }
 
 export class ManageReferralUseCase {
@@ -48,7 +47,7 @@ export class ManageReferralUseCase {
       id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       referralId,
       fromStatus: null,
-      toStatus: 'CREATED',
+      toStatus: 'REFERRAL_INITIATED',
       updatedBy: dto.referringDoctorName || 'Doctor',
       userRole: 'doctor',
       remarks: 'Digital referral initiated via MedVeda.',
@@ -70,11 +69,18 @@ export class ManageReferralUseCase {
       referringFacilityName: dto.referringFacilityName,
       receivingFacilityId: dto.receivingFacilityId,
       receivingFacilityName: dto.receivingFacilityName,
+      departmentReferredTo: dto.departmentReferredTo || 'General',
       specialty: dto.specialty,
       reason: dto.reason,
       clinicalSummary: dto.clinicalSummary || '',
-      urgencyTier: dto.urgencyTier || 'URGENT',
-      status: 'CREATED',
+      urgency: dto.urgency || 'Normal',
+      icuPatient: dto.icuPatient || false,
+      currentStep: 1,
+      treatingDoctor: null,
+      digitalSignature: dto.digitalSignature || null,
+      bedAllocation: null,
+      priorityRank: dto.urgency === 'Emergency' ? 1 : dto.urgency === 'Urgent' ? 2 : 3,
+      status: 'REFERRAL_INITIATED',
       createdAt: now,
       updatedAt: now,
       statusHistory: [initialHistoryItem]
@@ -118,7 +124,10 @@ export class ManageReferralUseCase {
       ...referral,
       status: dto.toStatus,
       updatedAt: now,
-      statusHistory: updatedHistory
+      statusHistory: updatedHistory,
+      ...(dto.treatingDoctor !== undefined && { treatingDoctor: dto.treatingDoctor }),
+      ...(dto.bedAllocation !== undefined && { bedAllocation: dto.bedAllocation }),
+      ...(dto.currentStep !== undefined && { currentStep: dto.currentStep })
     };
 
     this.store.save(updatedReferral);
@@ -176,7 +185,7 @@ export class ManageReferralUseCase {
 
   public async getPendingReferrals(): Promise<Referral[]> {
     const all = this.store.findAll();
-    return all.filter((r) => r.status === 'CREATED' || r.status === 'SENT' || r.status === 'IN_PROGRESS');
+    return all.filter((r) => r.status !== 'COMPLETED' && r.status !== 'REJECTED');
   }
 
   public async getCompletedReferrals(): Promise<Referral[]> {
@@ -188,10 +197,9 @@ export class ManageReferralUseCase {
     const all = this.store.findAll();
     return {
       total: all.length,
-      pending: all.filter((r) => r.status === 'CREATED' || r.status === 'SENT').length,
-      inProgress: all.filter((r) => r.status === 'IN_PROGRESS' || r.status === 'REACHED_FACILITY').length,
-      completed: all.filter((r) => r.status === 'COMPLETED').length,
-      cancelled: all.filter((r) => r.status === 'CANCELLED').length
+      pending: all.filter((r) => r.status !== 'COMPLETED' && r.status !== 'REJECTED').length,
+      rejected: all.filter((r) => r.status === 'REJECTED').length,
+      completed: all.filter((r) => r.status === 'COMPLETED').length
     };
   }
 

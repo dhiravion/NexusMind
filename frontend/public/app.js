@@ -4631,28 +4631,1040 @@ const REFERRING_DOCTOR_FACILITY_OPTIONS = [
   }
 ];
 
+
+function PatientReferralCard({ refData, activeTabRole, handleUpdateStatus }) {
+  const STEPS = [
+    { num: 1, label: 'Initiated' },
+    { num: 2, label: 'Answered' },
+    { num: 3, label: 'Bed Reserved' },
+    { num: 4, label: 'Patient Arrival' },
+    { num: 5, label: 'Bed Allotted' },
+    { num: 6, label: 'Treatment' }
+  ];
+
+  const currentStep = refData.currentStep || 1;
+  const status = refData.status;
+  const [showSlip, setShowSlip] = useState(false);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-4 hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-bold text-slate-800">{refData.referralId}</span>
+            {refData.urgency === 'Emergency' && <span className="bg-rose-100 text-rose-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Emergency</span>}
+            {refData.urgency === 'Urgent' && <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Urgent</span>}
+            {refData.urgency === 'Normal' && <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Normal</span>}
+            {refData.icuPatient && <span className="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex items-center gap-1"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ICU Needed</span>}
+          </div>
+          <h3 className="text-xl font-bold text-slate-900">{refData.patientName}, {refData.patientAge}{refData.patientSex === 'female' ? 'F' : 'M'}</h3>
+        </div>
+        <div className="text-right">
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${
+            status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+            status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+            'bg-blue-50 text-blue-700 border-blue-200'
+          }`}>
+            {status.replace(/_/g, ' ')}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-slate-600 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Referred To</p>
+          <p className="font-bold text-slate-800">{refData.receivingFacilityName}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Department</p>
+          <p className="font-bold text-slate-800">{refData.departmentReferredTo}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Referred By</p>
+          <p className="font-bold text-slate-800">{refData.referringDoctorName}</p>
+        </div>
+      </div>
+
+      <div className="w-full py-6">
+        <div className="flex items-center justify-between w-full relative">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1.5 bg-slate-100 rounded-full z-0"></div>
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 bg-[#0b2b82] rounded-full z-0 transition-all duration-500" style={{ width: `${Math.max(0, (currentStep - 1) * 20)}%` }}></div>
+          
+          {STEPS.map((step, idx) => {
+            const isCompleted = step.num < currentStep || status === 'COMPLETED';
+            const isActive = step.num === currentStep && status !== 'COMPLETED' && status !== 'REJECTED';
+            const isRejected = step.num === currentStep && status === 'REJECTED';
+            
+            let bgClass = "bg-white border-slate-200 text-slate-400";
+            if (isCompleted) bgClass = "bg-[#0b2b82] border-[#0b2b82] text-white shadow-md shadow-[#0b2b82]/30";
+            else if (isActive) bgClass = "bg-blue-50 border-[#0b2b82] text-[#0b2b82] ring-4 ring-blue-50";
+            else if (isRejected) bgClass = "bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-500/30";
+
+            return (
+              <div key={idx} className="relative z-10 flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-black transition-all ${bgClass}`}>
+                  {isCompleted ? '✓' : isRejected ? '✕' : step.num}
+                </div>
+                <div className="absolute top-12 text-[11px] text-slate-500 whitespace-nowrap font-bold text-center">
+                  {step.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {showSlip && (
+        <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Reason for Referral</h4>
+            <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">{refData.reason}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Clinical Findings</h4>
+            <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">{refData.clinicalSummary}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Source Hospital</h4>
+            <p className="text-sm font-medium text-slate-800">{refData.referringFacilityName}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Treating Doctor (Destination)</h4>
+            <p className="text-sm font-medium text-slate-800">{refData.treatingDoctor?.name || 'Not Assigned Yet'}</p>
+          </div>
+          {refData.digitalSignature && (
+             <div className="md:col-span-2">
+               <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Digital Signature</h4>
+               <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex items-center gap-4">
+                 <div className="italic font-serif text-lg text-slate-600 border-b border-slate-300 pb-1 px-4 inline-block">{refData.digitalSignature.imageOrInitialsSVG}</div>
+                 <div className="text-xs text-slate-500">
+                    <p className="font-bold text-slate-700">{refData.digitalSignature.doctorName}</p>
+                    <p>Signed: {new Date(refData.digitalSignature.signedAt).toLocaleString()}</p>
+                 </div>
+               </div>
+             </div>
+          )}
+        </div>
+      )}
+
+      {/* Actions Slot */}
+      <div className="mt-8 pt-5 border-t border-slate-100 flex justify-end gap-3 items-center">
+        <button onClick={() => setShowSlip(!showSlip)} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border-2 border-slate-200 hover:bg-slate-50 rounded-xl transition-all">
+          {showSlip ? 'Hide Full Slip' : 'View Full Slip & Instructions'}
+        </button>
+        
+        {activeTabRole === 'doctor' && status === 'REFERRAL_INITIATED' && (
+          <button onClick={() => handleUpdateStatus(refData, 'REJECTED', 1)} className="px-5 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all">
+            Cancel Referral
+          </button>
+        )}
+
+        {activeTabRole === 'facility' && status !== 'COMPLETED' && status !== 'REJECTED' && (
+          <>
+            {status === 'REFERRAL_INITIATED' && (
+              <>
+                <button onClick={() => handleUpdateStatus(refData, 'REJECTED', 2)} className="px-5 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all">Reject</button>
+                <button onClick={() => handleUpdateStatus(refData, 'ACCEPTED', 2)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Accept Patient</button>
+              </>
+            )}
+            {status === 'ACCEPTED' && (
+              <button onClick={() => handleUpdateStatus(refData, 'BED_RESERVATION', 3, true)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Reserve Bed</button>
+            )}
+            {status === 'BED_RESERVATION' && (
+              <button onClick={() => handleUpdateStatus(refData, 'PATIENT_ARRIVAL', 4)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Mark Arrival</button>
+            )}
+            {status === 'PATIENT_ARRIVAL' && (
+              <button onClick={() => handleUpdateStatus(refData, 'BED_ALLOTTED', 5, false, true)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Allot Bed & Assign Doctor</button>
+            )}
+            {status === 'BED_ALLOTTED' && (
+              <button onClick={() => handleUpdateStatus(refData, 'TREATMENT_ONGOING', 6)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Start Treatment</button>
+            )}
+            {status === 'TREATMENT_ONGOING' && (
+              <button onClick={() => handleUpdateStatus(refData, 'COMPLETED', 6)} className="px-5 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all">Complete Treatment</button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
+function PatientViewReferralCard({ refData }) {
+  return (
+    <div className="bg-white rounded-3xl shadow-md border-2 border-slate-100 p-6 mb-6 relative overflow-hidden">
+      {/* Decorative background shape */}
+      <div className="absolute -right-16 -top-16 w-32 h-32 bg-blue-50 rounded-full opacity-50"></div>
+      
+      <div className="flex flex-col md:flex-row gap-6 items-start relative z-10">
+        
+        {/* Profile / ID Section */}
+        <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200 min-w-[160px]">
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200 mb-3 text-slate-300">
+            <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </div>
+          <h3 className="text-lg font-black text-slate-800 text-center leading-tight">{refData.patientName}</h3>
+          <p className="text-xs text-slate-500 font-bold mt-1">Age: {refData.patientAge} | {refData.patientSex === 'female' ? 'F' : 'M'}</p>
+          <div className="mt-3 w-full text-center bg-blue-100 text-blue-800 text-[10px] font-black uppercase px-2 py-1 rounded">
+            ABHA: {refData.abhaId || '91-XXXX-XXXX-XXXX'}
+          </div>
+        </div>
+
+        {/* Details Section */}
+        <div className="flex-1 w-full">
+          <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-4 mb-4 gap-4">
+             <div>
+               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Referral ID</p>
+               <p className="text-xl font-black text-[#0b2b82] tracking-tight">{refData.referralId}</p>
+             </div>
+             <div className="text-right">
+               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Date of Referral</p>
+               <p className="text-sm font-bold text-slate-700">{new Date(refData.createdAt).toLocaleDateString()}</p>
+             </div>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Urgency Priority</p>
+                <p className={`font-black text-sm ${refData.urgency === 'Emergency' ? 'text-rose-600' : refData.urgency === 'Urgent' ? 'text-orange-500' : 'text-emerald-600'}`}>
+                  {refData.urgency}
+                </p>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Referral Status</p>
+                <p className="font-black text-sm text-[#0b2b82]">{refData.status.replace(/_/g, ' ')}</p>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">ICU Required</p>
+                <p className="font-black text-sm text-slate-700">{refData.icuPatient ? 'Yes' : 'No'}</p>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 col-span-2 md:col-span-1">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Department</p>
+                <p className="font-bold text-sm text-slate-800">{refData.departmentReferredTo}</p>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 col-span-2 md:col-span-2">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Referred To</p>
+                <p className="font-bold text-sm text-slate-800">{refData.receivingFacilityName}</p>
+             </div>
+          </div>
+          
+          <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+            <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider mb-1">Reason for Referral</p>
+            <p className="text-sm font-medium text-slate-700">{refData.reason}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PatientReferralCard({ refData, activeTabRole, handleUpdateStatus }) {
+  const STEPS = [
+    { num: 1, label: 'Initiated' },
+    { num: 2, label: 'Answered' },
+    { num: 3, label: 'Bed Reserved' },
+    { num: 4, label: 'Patient Arrival' },
+    { num: 5, label: 'Bed Allotted' },
+    { num: 6, label: 'Treatment' }
+  ];
+
+  const currentStep = refData.currentStep || 1;
+  const status = refData.status;
+  const [showSlip, setShowSlip] = useState(false);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-4 hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-bold text-slate-800">{refData.referralId}</span>
+            {refData.urgency === 'Emergency' && <span className="bg-rose-100 text-rose-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Emergency</span>}
+            {refData.urgency === 'Urgent' && <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Urgent</span>}
+            {refData.urgency === 'Normal' && <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Normal</span>}
+            {refData.icuPatient && <span className="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex items-center gap-1"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ICU Needed</span>}
+          </div>
+          <h3 className="text-xl font-bold text-slate-900">{refData.patientName}, {refData.patientAge}{refData.patientSex === 'female' ? 'F' : 'M'}</h3>
+        </div>
+        <div className="text-right">
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${
+            status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+            status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+            'bg-blue-50 text-blue-700 border-blue-200'
+          }`}>
+            {status.replace(/_/g, ' ')}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-slate-600 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Referred To</p>
+          <p className="font-bold text-slate-800">{refData.receivingFacilityName}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Department</p>
+          <p className="font-bold text-slate-800">{refData.departmentReferredTo}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Referred By</p>
+          <p className="font-bold text-slate-800">{refData.referringDoctorName}</p>
+        </div>
+      </div>
+
+      <div className="w-full py-6">
+        <div className="flex items-center justify-between w-full relative">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1.5 bg-slate-100 rounded-full z-0"></div>
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 bg-[#0b2b82] rounded-full z-0 transition-all duration-500" style={{ width: `${Math.max(0, (currentStep - 1) * 20)}%` }}></div>
+          
+          {STEPS.map((step, idx) => {
+            const isCompleted = step.num < currentStep || status === 'COMPLETED';
+            const isActive = step.num === currentStep && status !== 'COMPLETED' && status !== 'REJECTED';
+            const isRejected = step.num === currentStep && status === 'REJECTED';
+            
+            let bgClass = "bg-white border-slate-200 text-slate-400";
+            if (isCompleted) bgClass = "bg-[#0b2b82] border-[#0b2b82] text-white shadow-md shadow-[#0b2b82]/30";
+            else if (isActive) bgClass = "bg-blue-50 border-[#0b2b82] text-[#0b2b82] ring-4 ring-blue-50";
+            else if (isRejected) bgClass = "bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-500/30";
+
+            return (
+              <div key={idx} className="relative z-10 flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-black transition-all ${bgClass}`}>
+                  {isCompleted ? '✓' : isRejected ? '✕' : step.num}
+                </div>
+                <div className="absolute top-12 text-[11px] text-slate-500 whitespace-nowrap font-bold text-center">
+                  {step.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {showSlip && (
+        <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Reason for Referral</h4>
+            <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">{refData.reason}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Clinical Findings</h4>
+            <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">{refData.clinicalSummary}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Source Hospital</h4>
+            <p className="text-sm font-medium text-slate-800">{refData.referringFacilityName}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Treating Doctor (Destination)</h4>
+            <p className="text-sm font-medium text-slate-800">{refData.treatingDoctor?.name || 'Not Assigned Yet'}</p>
+          </div>
+          {refData.digitalSignature && (
+             <div className="md:col-span-2">
+               <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Digital Signature</h4>
+               <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex items-center gap-4">
+                 <div className="italic font-serif text-lg text-slate-600 border-b border-slate-300 pb-1 px-4 inline-block">{refData.digitalSignature.imageOrInitialsSVG}</div>
+                 <div className="text-xs text-slate-500">
+                    <p className="font-bold text-slate-700">{refData.digitalSignature.doctorName}</p>
+                    <p>Signed: {new Date(refData.digitalSignature.signedAt).toLocaleString()}</p>
+                 </div>
+               </div>
+             </div>
+          )}
+        </div>
+      )}
+
+      {/* Actions Slot */}
+      <div className="mt-8 pt-5 border-t border-slate-100 flex justify-end gap-3 items-center">
+        <button onClick={() => setShowSlip(!showSlip)} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border-2 border-slate-200 hover:bg-slate-50 rounded-xl transition-all">
+          {showSlip ? 'Hide Full Slip' : 'View Full Slip & Instructions'}
+        </button>
+        
+        {activeTabRole === 'doctor' && status === 'REFERRAL_INITIATED' && (
+          <button onClick={() => handleUpdateStatus(refData, 'REJECTED', 1)} className="px-5 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all">
+            Cancel Referral
+          </button>
+        )}
+
+        {activeTabRole === 'facility' && status !== 'COMPLETED' && status !== 'REJECTED' && (
+          <>
+            {status === 'REFERRAL_INITIATED' && (
+              <>
+                <button onClick={() => handleUpdateStatus(refData, 'REJECTED', 2)} className="px-5 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all">Reject</button>
+                <button onClick={() => handleUpdateStatus(refData, 'ACCEPTED', 2)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Accept Patient</button>
+              </>
+            )}
+            {status === 'ACCEPTED' && (
+              <button onClick={() => handleUpdateStatus(refData, 'BED_RESERVATION', 3, true)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Reserve Bed</button>
+            )}
+            {status === 'BED_RESERVATION' && (
+              <button onClick={() => handleUpdateStatus(refData, 'PATIENT_ARRIVAL', 4)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Mark Arrival</button>
+            )}
+            {status === 'PATIENT_ARRIVAL' && (
+              <button onClick={() => handleUpdateStatus(refData, 'BED_ALLOTTED', 5, false, true)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Allot Bed & Assign Doctor</button>
+            )}
+            {status === 'BED_ALLOTTED' && (
+              <button onClick={() => handleUpdateStatus(refData, 'TREATMENT_ONGOING', 6)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Start Treatment</button>
+            )}
+            {status === 'TREATMENT_ONGOING' && (
+              <button onClick={() => handleUpdateStatus(refData, 'COMPLETED', 6)} className="px-5 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all">Complete Treatment</button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
+
+function PatientBanner({ patientData }) {
+  return (
+    <div className="bg-[#0b2b82] rounded-2xl shadow-md p-8 mb-8 text-white">
+      <p className="text-xs font-bold text-blue-200 uppercase tracking-widest mb-2">Patient Portal</p>
+      <h2 className="text-3xl font-black mb-2">My referrals</h2>
+      <p className="text-blue-100 mb-6 text-sm">Track every referral made for your care, from initiation through treatment.</p>
+      
+      <div className="bg-[#1e3a8a] rounded-xl p-5 flex items-center gap-4">
+        <div className="w-12 h-12 bg-white text-[#0b2b82] rounded-full flex items-center justify-center font-black text-lg">
+          {patientData.name ? patientData.name.split(' ').map(n => n[0]).join('') : 'P'}
+        </div>
+        <div>
+          <h3 className="text-lg font-black">{patientData.name}</h3>
+          <p className="text-sm text-blue-200">
+            {patientData.abhaId ? `ABHA: ${patientData.abhaId}` : `UHID: PAT-${Math.floor(Math.random()*10000)}`} • {patientData.age} years • {patientData.sex === 'female' ? 'Female' : 'Male'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PatientReferralCard({ refData, activeTabRole, handleUpdateStatus }) {
+  const STEPS = [
+    { num: 1, label: 'Initiated' },
+    { num: 2, label: 'Answered' },
+    { num: 3, label: 'Bed Reserved' },
+    { num: 4, label: 'Patient Arrival' },
+    { num: 5, label: 'Bed Allotted' },
+    { num: 6, label: 'Treatment' }
+  ];
+
+  const currentStep = refData.currentStep || 1;
+  const status = refData.status;
+  const [showSlip, setShowSlip] = useState(false);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-4 hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-bold text-slate-800">{refData.referralId}</span>
+            {refData.urgency === 'Emergency' && <span className="bg-rose-100 text-rose-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Emergency</span>}
+            {refData.urgency === 'Urgent' && <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Urgent</span>}
+            {refData.urgency === 'Normal' && <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Normal</span>}
+            {refData.icuPatient && <span className="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex items-center gap-1"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ICU Needed</span>}
+          </div>
+          <h3 className="text-xl font-bold text-slate-900">{refData.patientName}, {refData.patientAge}{refData.patientSex === 'female' ? 'F' : 'M'}</h3>
+        </div>
+        <div className="text-right">
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${
+            status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+            status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+            'bg-blue-50 text-blue-700 border-blue-200'
+          }`}>
+            {status.replace(/_/g, ' ')}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-slate-600 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Referred To</p>
+          <p className="font-bold text-slate-800">{refData.receivingFacilityName}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Department</p>
+          <p className="font-bold text-slate-800">{refData.departmentReferredTo}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Referred By</p>
+          <p className="font-bold text-slate-800">{refData.referringDoctorName}</p>
+        </div>
+      </div>
+
+      <div className="w-full py-6">
+        <div className="flex items-center justify-between w-full relative">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1.5 bg-slate-100 rounded-full z-0"></div>
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 bg-[#0b2b82] rounded-full z-0 transition-all duration-500" style={{ width: `${Math.max(0, (currentStep - 1) * 20)}%` }}></div>
+          
+          {STEPS.map((step, idx) => {
+            const isCompleted = step.num < currentStep || status === 'COMPLETED';
+            const isActive = step.num === currentStep && status !== 'COMPLETED' && status !== 'REJECTED';
+            const isRejected = step.num === currentStep && status === 'REJECTED';
+            
+            let bgClass = "bg-white border-slate-200 text-slate-400";
+            if (isCompleted) bgClass = "bg-[#0b2b82] border-[#0b2b82] text-white shadow-md shadow-[#0b2b82]/30";
+            else if (isActive) bgClass = "bg-blue-50 border-[#0b2b82] text-[#0b2b82] ring-4 ring-blue-50";
+            else if (isRejected) bgClass = "bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-500/30";
+
+            return (
+              <div key={idx} className="relative z-10 flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-black transition-all ${bgClass}`}>
+                  {isCompleted ? '✓' : isRejected ? '✕' : step.num}
+                </div>
+                <div className="absolute top-12 text-[11px] text-slate-500 whitespace-nowrap font-bold text-center">
+                  {step.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {showSlip && (
+        <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Reason for Referral</h4>
+            <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">{refData.reason}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Clinical Findings</h4>
+            <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">{refData.clinicalSummary}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Source Hospital</h4>
+            <p className="text-sm font-medium text-slate-800">{refData.referringFacilityName}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Treating Doctor (Destination)</h4>
+            <p className="text-sm font-medium text-slate-800">{refData.treatingDoctor?.name || 'Not Assigned Yet'}</p>
+          </div>
+          {refData.digitalSignature && (
+             <div className="md:col-span-2">
+               <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Digital Signature</h4>
+               <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex items-center gap-4">
+                 <div className="italic font-serif text-lg text-slate-600 border-b border-slate-300 pb-1 px-4 inline-block">{refData.digitalSignature.imageOrInitialsSVG}</div>
+                 <div className="text-xs text-slate-500">
+                    <p className="font-bold text-slate-700">{refData.digitalSignature.doctorName}</p>
+                    <p>Signed: {new Date(refData.digitalSignature.signedAt).toLocaleString()}</p>
+                 </div>
+               </div>
+             </div>
+          )}
+        </div>
+      )}
+
+      {/* Actions Slot */}
+      <div className="mt-8 pt-5 border-t border-slate-100 flex justify-end gap-3 items-center">
+        <button onClick={() => setShowSlip(!showSlip)} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border-2 border-slate-200 hover:bg-slate-50 rounded-xl transition-all">
+          {showSlip ? 'Hide Full Slip' : 'View Full Slip & Instructions'}
+        </button>
+        
+        {activeTabRole === 'doctor' && status === 'REFERRAL_INITIATED' && (
+          <button onClick={() => handleUpdateStatus(refData, 'REJECTED', 1)} className="px-5 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all">
+            Cancel Referral
+          </button>
+        )}
+
+        {activeTabRole === 'facility' && status !== 'COMPLETED' && status !== 'REJECTED' && (
+          <>
+            {status === 'REFERRAL_INITIATED' && (
+              <>
+                <button onClick={() => handleUpdateStatus(refData, 'REJECTED', 2)} className="px-5 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all">Reject</button>
+                <button onClick={() => handleUpdateStatus(refData, 'ACCEPTED', 2)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Accept Patient</button>
+              </>
+            )}
+            {status === 'ACCEPTED' && (
+              <button onClick={() => handleUpdateStatus(refData, 'BED_RESERVATION', 3, true)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Reserve Bed</button>
+            )}
+            {status === 'BED_RESERVATION' && (
+              <button onClick={() => handleUpdateStatus(refData, 'PATIENT_ARRIVAL', 4)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Mark Arrival</button>
+            )}
+            {status === 'PATIENT_ARRIVAL' && (
+              <button onClick={() => handleUpdateStatus(refData, 'BED_ALLOTTED', 5, false, true)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Allot Bed & Assign Doctor</button>
+            )}
+            {status === 'BED_ALLOTTED' && (
+              <button onClick={() => handleUpdateStatus(refData, 'TREATMENT_ONGOING', 6)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Start Treatment</button>
+            )}
+            {status === 'TREATMENT_ONGOING' && (
+              <button onClick={() => handleUpdateStatus(refData, 'COMPLETED', 6)} className="px-5 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all">Complete Treatment</button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+function PatientViewReferralCard({ refData }) {
+  if (!refData) return null;
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 mb-8 relative overflow-hidden">
+      <div className="flex flex-col md:flex-row gap-6 items-start relative z-10">
+        {/* Profile / ID Section */}
+        <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200 min-w-[160px]">
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200 mb-3 text-slate-300">
+            <svg className="w-12 h-12 text-[#0b2b82]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </div>
+          <h3 className="text-lg font-black text-slate-800 text-center leading-tight">{refData.patientName}</h3>
+          <p className="text-xs text-slate-500 font-bold mt-1">Age: {refData.patientAge} | {refData.patientSex === 'female' ? 'F' : 'M'}</p>
+          <div className="mt-3 w-full text-center bg-blue-100 text-[#0b2b82] text-[10px] font-black uppercase px-2 py-1 rounded">
+            ABHA: {refData.abhaId || '91-XXXX-XXXX-XXXX'}
+          </div>
+        </div>
+
+        {/* Details Section */}
+        <div className="flex-1 w-full">
+          <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-4 mb-4 gap-4">
+             <div>
+               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Referral ID</p>
+               <p className="text-xl font-black text-[#0b2b82] tracking-tight">{refData.referralId}</p>
+             </div>
+             <div className="text-right">
+               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Date of Referral</p>
+               <p className="text-sm font-bold text-slate-700">{new Date(refData.createdAt).toLocaleDateString()}</p>
+             </div>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Urgency Priority</p>
+                <p className={`font-black text-sm ${refData.urgency === 'Emergency' ? 'text-rose-600' : refData.urgency === 'Urgent' ? 'text-orange-500' : 'text-emerald-600'}`}>
+                  {refData.urgency}
+                </p>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Referral Status</p>
+                <p className="font-black text-sm text-[#0b2b82]">{refData.status.replace(/_/g, ' ')}</p>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">ICU Required</p>
+                <p className="font-black text-sm text-slate-700">{refData.icuPatient ? 'Yes' : 'No'}</p>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 col-span-2 md:col-span-1">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Department</p>
+                <p className="font-bold text-sm text-slate-800">{refData.departmentReferredTo}</p>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 col-span-2 md:col-span-2">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Referred To</p>
+                <p className="font-bold text-sm text-slate-800">{refData.receivingFacilityName}</p>
+             </div>
+          </div>
+          
+          <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+            <p className="text-[10px] text-[#0b2b82] font-bold uppercase tracking-wider mb-1">Reason for Referral</p>
+            <p className="text-sm font-medium text-slate-700">{refData.reason}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PatientReferralCard({ refData, activeTabRole, handleUpdateStatus }) {
+  const STEPS = [
+    { num: 1, label: 'Initiated' },
+    { num: 2, label: 'Answered' },
+    { num: 3, label: 'Bed Reserved' },
+    { num: 4, label: 'Patient Arrival' },
+    { num: 5, label: 'Bed Allotted' },
+    { num: 6, label: 'Treatment' }
+  ];
+
+  const currentStep = refData.currentStep || 1;
+  const status = refData.status;
+  const [showSlip, setShowSlip] = useState(false);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-4 hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-bold text-slate-800">{refData.referralId}</span>
+            {refData.urgency === 'Emergency' && <span className="bg-rose-100 text-rose-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Emergency</span>}
+            {refData.urgency === 'Urgent' && <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Urgent</span>}
+            {refData.urgency === 'Normal' && <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Normal</span>}
+            {refData.icuPatient && <span className="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex items-center gap-1"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ICU Needed</span>}
+          </div>
+          <h3 className="text-xl font-bold text-slate-900">{refData.patientName}, {refData.patientAge}{refData.patientSex === 'female' ? 'F' : 'M'}</h3>
+        </div>
+        <div className="text-right">
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${
+            status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+            status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+            'bg-blue-50 text-blue-700 border-blue-200'
+          }`}>
+            {status.replace(/_/g, ' ')}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-slate-600 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Referred To</p>
+          <p className="font-bold text-slate-800">{refData.receivingFacilityName}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Department</p>
+          <p className="font-bold text-slate-800">{refData.departmentReferredTo}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Referred By</p>
+          <p className="font-bold text-slate-800">{refData.referringDoctorName}</p>
+        </div>
+      </div>
+
+      <div className="w-full py-6">
+        <div className="flex items-center justify-between w-full relative">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1.5 bg-slate-100 rounded-full z-0"></div>
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 bg-[#0b2b82] rounded-full z-0 transition-all duration-500" style={{ width: `${Math.max(0, (currentStep - 1) * 20)}%` }}></div>
+          
+          {STEPS.map((step, idx) => {
+            const isCompleted = step.num < currentStep || status === 'COMPLETED';
+            const isActive = step.num === currentStep && status !== 'COMPLETED' && status !== 'REJECTED';
+            const isRejected = step.num === currentStep && status === 'REJECTED';
+            
+            let bgClass = "bg-white border-slate-200 text-slate-400";
+            if (isCompleted) bgClass = "bg-[#0b2b82] border-[#0b2b82] text-white shadow-md shadow-[#0b2b82]/30";
+            else if (isActive) bgClass = "bg-blue-50 border-[#0b2b82] text-[#0b2b82] ring-4 ring-blue-50";
+            else if (isRejected) bgClass = "bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-500/30";
+
+            return (
+              <div key={idx} className="relative z-10 flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-black transition-all ${bgClass}`}>
+                  {isCompleted ? '✓' : isRejected ? '✕' : step.num}
+                </div>
+                <div className="absolute top-12 text-[11px] text-slate-500 whitespace-nowrap font-bold text-center">
+                  {step.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {showSlip && (
+        <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Reason for Referral</h4>
+            <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">{refData.reason}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Clinical Findings</h4>
+            <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">{refData.clinicalSummary}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Source Hospital</h4>
+            <p className="text-sm font-medium text-slate-800">{refData.referringFacilityName}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Treating Doctor (Destination)</h4>
+            <p className="text-sm font-medium text-slate-800">{refData.treatingDoctor?.name || 'Not Assigned Yet'}</p>
+          </div>
+          {refData.digitalSignature && (
+             <div className="md:col-span-2">
+               <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Digital Signature</h4>
+               <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex items-center gap-4">
+                 <div className="italic font-serif text-lg text-slate-600 border-b border-slate-300 pb-1 px-4 inline-block">{refData.digitalSignature.imageOrInitialsSVG}</div>
+                 <div className="text-xs text-slate-500">
+                    <p className="font-bold text-slate-700">{refData.digitalSignature.doctorName}</p>
+                    <p>Signed: {new Date(refData.digitalSignature.signedAt).toLocaleString()}</p>
+                 </div>
+               </div>
+             </div>
+          )}
+        </div>
+      )}
+
+      {/* Actions Slot */}
+      <div className="mt-8 pt-5 border-t border-slate-100 flex justify-end gap-3 items-center">
+        <button onClick={() => setShowSlip(!showSlip)} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border-2 border-slate-200 hover:bg-slate-50 rounded-xl transition-all">
+          {showSlip ? 'Hide Full Slip' : 'View Full Slip & Instructions'}
+        </button>
+        
+        {activeTabRole === 'doctor' && status === 'REFERRAL_INITIATED' && (
+          <button onClick={() => handleUpdateStatus(refData, 'REJECTED', 1)} className="px-5 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all">
+            Cancel Referral
+          </button>
+        )}
+
+        {activeTabRole === 'facility' && status !== 'COMPLETED' && status !== 'REJECTED' && (
+          <>
+            {status === 'REFERRAL_INITIATED' && (
+              <>
+                <button onClick={() => handleUpdateStatus(refData, 'REJECTED', 2)} className="px-5 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all">Reject</button>
+                <button onClick={() => handleUpdateStatus(refData, 'ACCEPTED', 2)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Accept Patient</button>
+              </>
+            )}
+            {status === 'ACCEPTED' && (
+              <button onClick={() => handleUpdateStatus(refData, 'BED_RESERVATION', 3, true)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Reserve Bed</button>
+            )}
+            {status === 'BED_RESERVATION' && (
+              <button onClick={() => handleUpdateStatus(refData, 'PATIENT_ARRIVAL', 4)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Mark Arrival</button>
+            )}
+            {status === 'PATIENT_ARRIVAL' && (
+              <button onClick={() => handleUpdateStatus(refData, 'BED_ALLOTTED', 5, false, true)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Allot Bed & Assign Doctor</button>
+            )}
+            {status === 'BED_ALLOTTED' && (
+              <button onClick={() => handleUpdateStatus(refData, 'TREATMENT_ONGOING', 6)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Start Treatment</button>
+            )}
+            {status === 'TREATMENT_ONGOING' && (
+              <button onClick={() => handleUpdateStatus(refData, 'COMPLETED', 6)} className="px-5 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all">Complete Treatment</button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+function PatientViewReferralCard({ refData }) {
+  if (!refData) return null;
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 mb-8 relative overflow-hidden">
+      <div className="flex flex-col md:flex-row gap-6 items-start relative z-10">
+        {/* Profile / ID Section */}
+        <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200 min-w-[160px]">
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200 mb-3 text-slate-300">
+            <svg className="w-12 h-12 text-[#0b2b82]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </div>
+          <h3 className="text-lg font-black text-slate-800 text-center leading-tight">{refData.patientName}</h3>
+          <p className="text-xs text-slate-500 font-bold mt-1">Age: {refData.patientAge} | {refData.patientSex === 'female' ? 'F' : 'M'}</p>
+          <div className="mt-3 w-full text-center bg-blue-100 text-[#0b2b82] text-[10px] font-black uppercase px-2 py-1 rounded">
+            ABHA: {refData.abhaId || '91-XXXX-XXXX-XXXX'}
+          </div>
+        </div>
+
+        {/* Details Section */}
+        <div className="flex-1 w-full">
+          <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-4 mb-4 gap-4">
+             <div>
+               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Referral ID</p>
+               <p className="text-xl font-black text-[#0b2b82] tracking-tight">{refData.referralId}</p>
+             </div>
+             <div className="text-right">
+               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Date of Referral</p>
+               <p className="text-sm font-bold text-slate-700">{new Date(refData.createdAt).toLocaleDateString()}</p>
+             </div>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Urgency Priority</p>
+                <p className={`font-black text-sm ${refData.urgency === 'Emergency' ? 'text-rose-600' : refData.urgency === 'Urgent' ? 'text-orange-500' : 'text-emerald-600'}`}>
+                  {refData.urgency}
+                </p>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Referral Status</p>
+                <p className="font-black text-sm text-[#0b2b82]">{refData.status.replace(/_/g, ' ')}</p>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">ICU Required</p>
+                <p className="font-black text-sm text-slate-700">{refData.icuPatient ? 'Yes' : 'No'}</p>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 col-span-2 md:col-span-1">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Department</p>
+                <p className="font-bold text-sm text-slate-800">{refData.departmentReferredTo}</p>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 col-span-2 md:col-span-2">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Referred To</p>
+                <p className="font-bold text-sm text-slate-800">{refData.receivingFacilityName}</p>
+             </div>
+          </div>
+          
+          <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+            <p className="text-[10px] text-[#0b2b82] font-bold uppercase tracking-wider mb-1">Reason for Referral</p>
+            <p className="text-sm font-medium text-slate-700">{refData.reason}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PatientReferralCard({ refData, activeTabRole, handleUpdateStatus }) {
+  const STEPS = [
+    { num: 1, label: 'Initiated' },
+    { num: 2, label: 'Answered' },
+    { num: 3, label: 'Bed Reserved' },
+    { num: 4, label: 'Patient Arrival' },
+    { num: 5, label: 'Bed Allotted' },
+    { num: 6, label: 'Treatment' }
+  ];
+
+  const currentStep = refData.currentStep || 1;
+  const status = refData.status;
+  const [showSlip, setShowSlip] = useState(false);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-4 hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-bold text-slate-800">{refData.referralId}</span>
+            {refData.urgency === 'Emergency' && <span className="bg-rose-100 text-rose-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Emergency</span>}
+            {refData.urgency === 'Urgent' && <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Urgent</span>}
+            {refData.urgency === 'Normal' && <span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Normal</span>}
+            {refData.icuPatient && <span className="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex items-center gap-1"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ICU Needed</span>}
+          </div>
+          <h3 className="text-xl font-bold text-slate-900">{refData.patientName}, {refData.patientAge}{refData.patientSex === 'female' ? 'F' : 'M'}</h3>
+        </div>
+        <div className="text-right">
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${
+            status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+            status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+            'bg-blue-50 text-blue-700 border-blue-200'
+          }`}>
+            {status.replace(/_/g, ' ')}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-slate-600 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Referred To</p>
+          <p className="font-bold text-slate-800">{refData.receivingFacilityName}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Department</p>
+          <p className="font-bold text-slate-800">{refData.departmentReferredTo}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Referred By</p>
+          <p className="font-bold text-slate-800">{refData.referringDoctorName}</p>
+        </div>
+      </div>
+
+      <div className="w-full py-6">
+        <div className="flex items-center justify-between w-full relative">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1.5 bg-slate-100 rounded-full z-0"></div>
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 bg-[#0b2b82] rounded-full z-0 transition-all duration-500" style={{ width: `${Math.max(0, (currentStep - 1) * 20)}%` }}></div>
+          
+          {STEPS.map((step, idx) => {
+            const isCompleted = step.num < currentStep || status === 'COMPLETED';
+            const isActive = step.num === currentStep && status !== 'COMPLETED' && status !== 'REJECTED';
+            const isRejected = step.num === currentStep && status === 'REJECTED';
+            
+            let bgClass = "bg-white border-slate-200 text-slate-400";
+            if (isCompleted) bgClass = "bg-[#0b2b82] border-[#0b2b82] text-white shadow-md shadow-[#0b2b82]/30";
+            else if (isActive) bgClass = "bg-blue-50 border-[#0b2b82] text-[#0b2b82] ring-4 ring-blue-50";
+            else if (isRejected) bgClass = "bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-500/30";
+
+            return (
+              <div key={idx} className="relative z-10 flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-black transition-all ${bgClass}`}>
+                  {isCompleted ? '✓' : isRejected ? '✕' : step.num}
+                </div>
+                <div className="absolute top-12 text-[11px] text-slate-500 whitespace-nowrap font-bold text-center">
+                  {step.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {showSlip && (
+        <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Reason for Referral</h4>
+            <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">{refData.reason}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Clinical Findings</h4>
+            <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">{refData.clinicalSummary}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Source Hospital</h4>
+            <p className="text-sm font-medium text-slate-800">{refData.referringFacilityName}</p>
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Treating Doctor (Destination)</h4>
+            <p className="text-sm font-medium text-slate-800">{refData.treatingDoctor?.name || 'Not Assigned Yet'}</p>
+          </div>
+          {refData.digitalSignature && (
+             <div className="md:col-span-2">
+               <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Digital Signature</h4>
+               <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex items-center gap-4">
+                 <div className="italic font-serif text-lg text-slate-600 border-b border-slate-300 pb-1 px-4 inline-block">{refData.digitalSignature.imageOrInitialsSVG}</div>
+                 <div className="text-xs text-slate-500">
+                    <p className="font-bold text-slate-700">{refData.digitalSignature.doctorName}</p>
+                    <p>Signed: {new Date(refData.digitalSignature.signedAt).toLocaleString()}</p>
+                 </div>
+               </div>
+             </div>
+          )}
+        </div>
+      )}
+
+      {/* Actions Slot */}
+      <div className="mt-8 pt-5 border-t border-slate-100 flex justify-end gap-3 items-center">
+        <button onClick={() => setShowSlip(!showSlip)} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border-2 border-slate-200 hover:bg-slate-50 rounded-xl transition-all">
+          {showSlip ? 'Hide Full Slip' : 'View Full Slip & Instructions'}
+        </button>
+        
+        {activeTabRole === 'doctor' && status === 'REFERRAL_INITIATED' && (
+          <button onClick={() => handleUpdateStatus(refData, 'REJECTED', 1)} className="px-5 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all">
+            Cancel Referral
+          </button>
+        )}
+
+        {activeTabRole === 'facility' && status !== 'COMPLETED' && status !== 'REJECTED' && (
+          <>
+            {status === 'REFERRAL_INITIATED' && (
+              <>
+                <button onClick={() => handleUpdateStatus(refData, 'REJECTED', 2)} className="px-5 py-2.5 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all">Reject</button>
+                <button onClick={() => handleUpdateStatus(refData, 'ACCEPTED', 2)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Accept Patient</button>
+              </>
+            )}
+            {status === 'ACCEPTED' && (
+              <button onClick={() => handleUpdateStatus(refData, 'BED_RESERVATION', 3, true)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Reserve Bed</button>
+            )}
+            {status === 'BED_RESERVATION' && (
+              <button onClick={() => handleUpdateStatus(refData, 'PATIENT_ARRIVAL', 4)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Mark Arrival</button>
+            )}
+            {status === 'PATIENT_ARRIVAL' && (
+              <button onClick={() => handleUpdateStatus(refData, 'BED_ALLOTTED', 5, false, true)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Allot Bed & Assign Doctor</button>
+            )}
+            {status === 'BED_ALLOTTED' && (
+              <button onClick={() => handleUpdateStatus(refData, 'TREATMENT_ONGOING', 6)} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b2b82] hover:bg-blue-800 rounded-xl shadow-md shadow-[#0b2b82]/20 transition-all">Start Treatment</button>
+            )}
+            {status === 'TREATMENT_ONGOING' && (
+              <button onClick={() => handleUpdateStatus(refData, 'COMPLETED', 6)} className="px-5 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all">Complete Treatment</button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNavigateToCareNavigator }) {
+  const [activeTabRole, setActiveTabRole] = useState(actorRole || 'doctor');
   const [referrals, setReferrals] = useState([]);
-  const [stats, setStats] = useState({ total: 0, pending: 0, inProgress: 0, completed: 0, cancelled: 0 });
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ total: 0, pending: 0, rejected: 0, completed: 0 });
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTabRole, setActiveTabRole] = useState(actorRole || 'doctor');
-  const [selectedTimelineRef, setSelectedTimelineRef] = useState(null);
-  const [timelineLogs, setTimelineLogs] = useState([]);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [targetReferral, setTargetReferral] = useState(null);
-  const [statusRemarks, setStatusRemarks] = useState('');
-  const [targetStatus, setTargetStatus] = useState('SENT');
-  const [isCustomReferringDoctor, setIsCustomReferringDoctor] = useState(false);
-  const [selectedDoctorOptionId, setSelectedDoctorOptionId] = useState('doc_1');
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [targetDeleteRef, setTargetDeleteRef] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [systemTab, setSystemTab] = useState('Overview');
+  
+  const [showCreateWizard, setShowCreateWizard] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  
+  // Modals for facility actions
+  const [showBedModal, setShowBedModal] = useState(false);
+  const [showAllotModal, setShowAllotModal] = useState(false);
+  const [actionTarget, setActionTarget] = useState(null);
 
-  // New Referral Form state
   const [formData, setFormData] = useState({
     patientId: 'PAT-1024',
     patientName: 'Anita Devi',
@@ -4666,1286 +5678,484 @@ function ScreenReferralManagement({ actorRole, setActorRole, onBackToHome, onNav
     referringFacilityName: 'Katkamsandi Primary Health Centre',
     receivingFacilityId: 'fac_sbmch',
     receivingFacilityName: 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
+    departmentReferredTo: 'Cardiology',
     specialty: 'Cardiology',
-    reason: 'Acute exertional chest tightness, ST segment depression, suspected unstable angina',
-    clinicalSummary: '58F diabetic & hypertensive. FAST stroke negative. ECG reveals anterior lead T-wave inversion. SBP 142/90. Sourced from Smart Care Navigator routing.',
-    urgencyTier: 'CRITICAL'
+    reason: 'Acute exertional chest tightness, ST segment depression',
+    clinicalSummary: '58F diabetic & hypertensive. FAST stroke negative. ECG reveals anterior lead T-wave inversion. SBP 142/90.',
+    urgency: 'Emergency',
+    icuPatient: true,
+    digitalSignature: null
   });
 
   const loadData = async () => {
     try {
-      setLoading(true);
       const [refRes, statRes] = await Promise.all([
         fetch(getApiUrl('/api/referrals')),
         fetch(getApiUrl('/api/referrals/stats'))
       ]);
-      const refData = await refRes.json();
-      const statData = await statRes.json();
-      if (refData.data && Array.isArray(refData.data)) setReferrals(refData.data);
-      if (statData.data) setStats(statData.data);
+      if(refRes.ok && statRes.ok) {
+        const refData = await refRes.json();
+        const statData = await statRes.json();
+        if (refData.data && Array.isArray(refData.data)) {
+           // update local state
+           setReferrals(refData.data.map(r => ({
+             ...r,
+             priorityRank: r.urgencyTier === 'CRITICAL' ? 1 : r.urgencyTier === 'URGENT' ? 2 : 3,
+             urgency: r.urgencyTier === 'CRITICAL' ? 'Emergency' : r.urgencyTier === 'URGENT' ? 'Urgent' : 'Normal',
+             currentStep: r.status === 'REFERRAL_INITIATED' ? 1 : r.status === 'ACCEPTED' ? 2 : r.status === 'BED_RESERVATION' ? 3 : r.status === 'PATIENT_ARRIVAL' ? 4 : r.status === 'BED_ALLOTTED' ? 5 : r.status === 'TREATMENT_ONGOING' || r.status === 'COMPLETED' ? 6 : 1,
+             receivingFacilityName: r.receivingFacilityName || 'SBMC&H'
+           })));
+        }
+        if (statData.data) setStats(statData.data);
+      } else {
+        throw new Error();
+      }
     } catch (err) {
-      console.warn('Network fetch unavailable, using active local referral store:', err);
-    } finally {
-      setLoading(false);
+      console.warn('Network fetch unavailable, seeding local store for test.');
+      seedLocalData();
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const seedLocalData = () => {
+    const now = new Date();
+    const mockRef1 = {
+      referralId: 'REF-2026-0084', patientName: 'Arjun Mehta', patientAge: 58, patientSex: 'male',
+      urgency: 'Emergency', icuPatient: true, status: 'REFERRAL_INITIATED', currentStep: 1, priorityRank: 1,
+      referringDoctorName: 'Dr. Priya Sharma', referringFacilityName: 'Katkamsandi PHC',
+      receivingFacilityName: 'Apollo Hospitals, Jubilee Hills', departmentReferredTo: 'Cardiology',
+      reason: 'Acute exertional chest tightness', clinicalSummary: 'ECG reveals anterior lead T-wave inversion.', createdAt: now.toISOString(),
+      digitalSignature: { doctorName: 'Dr. Priya Sharma', signedAt: now.toISOString(), imageOrInitialsSVG: 'P.S.' }
+    };
+    const mockRef2 = {
+      referralId: 'REF-2026-0072', patientName: 'Arjun Mehta', patientAge: 58, patientSex: 'male',
+      urgency: 'Urgent', icuPatient: false, status: 'BED_ALLOTTED', currentStep: 5, priorityRank: 2,
+      referringDoctorName: 'Dr. Priya Sharma', referringFacilityName: 'Katkamsandi PHC',
+      receivingFacilityName: 'Yashoda Hospitals, Secunderabad', departmentReferredTo: 'Pulmonology',
+      reason: 'Severe asthma exacerbation', clinicalSummary: 'Low O2 sats', createdAt: new Date(now.getTime() - 86400000 * 30).toISOString(),
+      digitalSignature: { doctorName: 'Dr. Priya Sharma', signedAt: new Date(now.getTime() - 86400000 * 30).toISOString(), imageOrInitialsSVG: 'P.S.' }
+    };
+    const mockRef3 = {
+      referralId: 'REF-2026-0061', patientName: 'Arjun Mehta', patientAge: 58, patientSex: 'male',
+      urgency: 'Normal', icuPatient: false, status: 'COMPLETED', currentStep: 6, priorityRank: 3,
+      referringDoctorName: 'Dr. Priya Sharma', referringFacilityName: 'Katkamsandi PHC',
+      receivingFacilityName: 'Care Hospitals, Banjara Hills', departmentReferredTo: 'General Medicine',
+      reason: 'Routine checkup referral', clinicalSummary: 'Stable', createdAt: new Date(now.getTime() - 86400000 * 60).toISOString(),
+      digitalSignature: { doctorName: 'Dr. Priya Sharma', signedAt: new Date(now.getTime() - 86400000 * 60).toISOString(), imageOrInitialsSVG: 'P.S.' }
+    };
+    setReferrals([mockRef1, mockRef2, mockRef3]);
+    setStats({ total: 3, pending: 2, rejected: 0, completed: 1 });
+  };
 
   useEffect(() => {
-    if (actorRole) setActiveTabRole(actorRole);
+    if (actorRole && ['doctor', 'facility', 'patient'].includes(actorRole)) {
+      setActiveTabRole(actorRole);
+    }
   }, [actorRole]);
 
-  const handleOpenTimeline = async (ref) => {
-    setSelectedTimelineRef(ref);
-    try {
-      const res = await fetch(getApiUrl(`/api/referrals/${ref.referralId}/history`));
-      const data = await res.json();
-      setTimelineLogs(data.data || ref.statusHistory || []);
-    } catch (err) {
-      setTimelineLogs(ref.statusHistory || []);
+  useEffect(() => { loadData(); }, []);
+
+  const handleUpdateStatus = async (refData, newStatus, currentStep, openBedReserve = false, openBedAllot = false) => {
+    if (openBedReserve) {
+      setActionTarget({ ...refData, targetStatus: newStatus, targetStep: currentStep });
+      setShowBedModal(true);
+      return;
     }
+    if (openBedAllot) {
+      setActionTarget({ ...refData, targetStatus: newStatus, targetStep: currentStep });
+      setShowAllotModal(true);
+      return;
+    }
+    await commitStatusUpdate(refData.referralId, newStatus, currentStep, null, null);
   };
 
-  const handleCreateSubmit = async (e) => {
-    e.preventDefault();
+  const commitStatusUpdate = async (refId, newStatus, currentStep, bedAlloc, treatingDoc) => {
+    try {
+      const payload = {
+        toStatus: newStatus,
+        updatedBy: activeTabRole,
+        userRole: activeTabRole,
+        currentStep,
+        ...(bedAlloc && { bedAllocation: bedAlloc }),
+        ...(treatingDoc && { treatingDoctor: treatingDoc })
+      };
+      const res = await fetch(getApiUrl(`/api/referrals/${refId}/status`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        loadData();
+      } else {
+         throw new Error();
+      }
+    } catch (e) {
+      // Local fallback
+      setReferrals(prev => prev.map(r => {
+        if (r.referralId === refId) {
+          return { ...r, status: newStatus, currentStep, ...(bedAlloc && { bedAllocation: bedAlloc }), ...(treatingDoc && { treatingDoctor: treatingDoc }) };
+        }
+        return r;
+      }));
+      if (newStatus === 'COMPLETED') setStats(s => ({ ...s, pending: s.pending - 1, completed: s.completed + 1 }));
+      if (newStatus === 'REJECTED') setStats(s => ({ ...s, pending: s.pending - 1, rejected: s.rejected + 1 }));
+    }
+    setShowBedModal(false);
+    setShowAllotModal(false);
+  };
+
+  const handleCreateSubmit = async () => {
     try {
       const res = await fetch(getApiUrl('/api/referrals'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-      const data = await res.json();
-      if (data.success && data.data) {
-        setShowCreateModal(false);
-        setReferrals((prev) => [data.data, ...prev.filter((r) => r.referralId !== data.data.referralId)]);
-        setStats((prev) => ({ ...prev, total: prev.total + 1, pending: prev.pending + 1 }));
-        return;
-      }
-    } catch (err) {
-      console.warn('Backend POST failed, generating referral locally:', err);
-    }
-
-    // Seamless Local Fallback
-    const nextSeq = 130 + referrals.length;
-    const newRefId = `REF-2026-${String(nextSeq).padStart(5, '0')}`;
-    const now = new Date().toISOString();
-    const newReferral = {
-      id: `ref_local_${Date.now()}`,
-      referralId: newRefId,
-      patientId: formData.patientId || `PAT-${Date.now().toString().slice(-4)}`,
-      patientName: formData.patientName,
-      patientAge: formData.patientAge,
-      patientSex: formData.patientSex,
-      patientPhone: formData.patientPhone || '+91-94311-28901',
-      patientLocation: formData.patientLocation || 'Hazaribagh',
-      referringDoctorId: formData.referringDoctorId || 'doc_1',
-      referringDoctorName: formData.referringDoctorName || 'Dr. Priya Sharma',
-      referringFacilityId: formData.referringFacilityId || 'fac_phc_1',
-      referringFacilityName: formData.referringFacilityName || 'Katkamsandi Primary Health Centre',
-      receivingFacilityId: formData.receivingFacilityId || 'fac_sbmch',
-      receivingFacilityName: formData.receivingFacilityName || 'Sheikh Bhikhari Medical College & Hospital (SBMC&H)',
-      specialty: formData.specialty,
-      reason: formData.reason,
-      clinicalSummary: formData.clinicalSummary,
-      urgencyTier: formData.urgencyTier || 'CRITICAL',
-      status: 'CREATED',
-      createdAt: now,
-      updatedAt: now,
-      statusHistory: [
-        {
-          id: `hist_init_${Date.now()}`,
-          referralId: newRefId,
-          fromStatus: null,
-          toStatus: 'CREATED',
-          updatedBy: formData.referringDoctorName || 'Dr. Priya Sharma',
-          userRole: 'doctor',
-          remarks: 'Digital referral initiated via MedVeda.',
-          timestamp: now
-        }
-      ]
-    };
-
-    setReferrals((prev) => [newReferral, ...prev]);
-    setStats((prev) => ({ ...prev, total: prev.total + 1, pending: prev.pending + 1 }));
-    setShowCreateModal(false);
-  };
-
-  const handleUpdateStatus = (ref, newStatus, defaultRemarks = '') => {
-    setTargetReferral(ref);
-    setTargetStatus(newStatus);
-    setStatusRemarks(defaultRemarks || `Status updated to ${newStatus} by ${activeTabRole}`);
-    setShowUpdateModal(true);
-  };
-
-  const confirmStatusUpdate = async () => {
-    if (!targetReferral) return;
-    const updaterName =
-      activeTabRole === 'doctor'
-        ? (formData.referringDoctorName || 'Dr. Priya Sharma')
-        : activeTabRole === 'worker'
-          ? 'ASHA Anita Devi'
-          : activeTabRole === 'facility'
-            ? 'SBMC&H Reception Desk'
-            : 'Patient';
-
-    try {
-      const res = await fetch(getApiUrl(`/api/referrals/${targetReferral.referralId}/status`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toStatus: targetStatus,
-          updatedBy: updaterName,
-          userRole: activeTabRole,
-          remarks: statusRemarks
-        })
-      });
-      const data = await res.json();
-      if (data.success && data.data) {
-        setShowUpdateModal(false);
-        setReferrals((prev) => prev.map((r) => (r.referralId === data.data.referralId ? data.data : r)));
+      if (res.ok) {
         loadData();
-        return;
-      }
-    } catch (err) {
-      console.warn('Backend PATCH failed, applying transition locally:', err);
+      } else throw new Error();
+    } catch(e) {
+      // Local fallback
+      const newRef = {
+        ...formData,
+        referralId: `REF-2026-${Math.floor(Math.random()*10000)}`,
+        status: 'REFERRAL_INITIATED',
+        currentStep: 1,
+        priorityRank: formData.urgency === 'Emergency' ? 1 : formData.urgency === 'Urgent' ? 2 : 3,
+        createdAt: new Date().toISOString()
+      };
+      setReferrals([newRef, ...referrals]);
+      setStats(s => ({ ...s, total: s.total + 1, pending: s.pending + 1 }));
     }
-
-    // Seamless Local Transition Fallback
-    const now = new Date().toISOString();
-    const newHistoryItem = {
-      id: `hist_${Date.now()}`,
-      referralId: targetReferral.referralId,
-      fromStatus: targetReferral.status,
-      toStatus: targetStatus,
-      updatedBy: updaterName,
-      userRole: activeTabRole,
-      remarks: statusRemarks || `Status transitioned to ${targetStatus}`,
-      timestamp: now
-    };
-
-    setReferrals((prev) =>
-      prev.map((r) => {
-        if (r.referralId === targetReferral.referralId) {
-          return {
-            ...r,
-            status: targetStatus,
-            updatedAt: now,
-            statusHistory: [...(r.statusHistory || []), newHistoryItem]
-          };
-        }
-        return r;
-      })
-    );
-
-    if (targetStatus === 'CANCELLED') {
-      setStats((prev) => ({
-        ...prev,
-        pending: Math.max(0, prev.pending - (targetReferral.status === 'CREATED' || targetReferral.status === 'SENT' ? 1 : 0)),
-        cancelled: (prev.cancelled || 0) + 1
-      }));
-    }
-
-    setShowUpdateModal(false);
+    setShowCreateWizard(false);
+    setWizardStep(1);
   };
 
-  const handleOpenDeleteModal = (ref) => {
-    setTargetDeleteRef(ref);
-    setShowDeleteModal(true);
-  };
+  const getFilteredReferrals = () => {
+    let list = [...referrals];
+    if (statusFilter === 'PENDING') list = list.filter(r => r.status !== 'COMPLETED' && r.status !== 'REJECTED');
+    else if (statusFilter === 'COMPLETED') list = list.filter(r => r.status === 'COMPLETED');
+    else if (statusFilter === 'REJECTED') list = list.filter(r => r.status === 'REJECTED');
 
-  const confirmDeleteReferral = async () => {
-    if (!targetDeleteRef) return;
-    setIsDeleting(true);
-    try {
-      const res = await fetch(getApiUrl(`/api/referrals/${encodeURIComponent(targetDeleteRef.referralId)}`), {
-        method: 'DELETE'
-      });
-      const json = await res.json();
-      if (!json.success) {
-        console.warn('Backend DELETE returned failure, applying local delete:', json);
-      }
-    } catch (err) {
-      console.warn('Backend DELETE fetch failed, applying local delete:', err);
-    }
-
-    setReferrals((prev) => prev.filter((r) => r.referralId !== targetDeleteRef.referralId));
-    setStats((prev) => ({
-      ...prev,
-      total: Math.max(0, prev.total - 1),
-      pending: Math.max(0, prev.pending - (targetDeleteRef.status === 'CREATED' || targetDeleteRef.status === 'SENT' ? 1 : 0)),
-      inProgress: Math.max(0, prev.inProgress - (targetDeleteRef.status === 'IN_PROGRESS' || targetDeleteRef.status === 'REACHED_FACILITY' ? 1 : 0)),
-      completed: Math.max(0, prev.completed - (targetDeleteRef.status === 'COMPLETED' ? 1 : 0)),
-      cancelled: Math.max(0, (prev.cancelled || 0) - (targetDeleteRef.status === 'CANCELLED' ? 1 : 0))
-    }));
-
-    if (selectedTimelineRef?.referralId === targetDeleteRef.referralId) {
-      setSelectedTimelineRef(null);
-    }
-
-    setIsDeleting(false);
-    setShowDeleteModal(false);
-    setTargetDeleteRef(null);
-  };
-
-  const filteredReferrals = useMemo(() => {
-    return referrals.filter((r) => {
-      const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter;
+    if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      const matchesSearch =
-        !q ||
-        r.referralId.toLowerCase().includes(q) ||
-        r.patientName.toLowerCase().includes(q) ||
-        r.specialty.toLowerCase().includes(q) ||
-        r.receivingFacilityName.toLowerCase().includes(q);
-      return matchesStatus && matchesSearch;
-    });
-  }, [referrals, statusFilter, searchQuery]);
+      list = list.filter(r => r.patientName.toLowerCase().includes(q) || r.referralId.toLowerCase().includes(q));
+    }
 
-  const pendingWorkerReferrals = useMemo(() => {
-    return referrals.filter((r) => r.status === 'CREATED' || r.status === 'SENT' || r.status === 'IN_PROGRESS');
-  }, [referrals]);
+    if (activeTabRole === 'facility') {
+      list.sort((a, b) => {
+        if (a.priorityRank !== b.priorityRank) return (a.priorityRank || 3) - (b.priorityRank || 3);
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      });
+    }
 
-  const incomingFacilityReferrals = useMemo(() => {
-    return referrals.filter((r) => r.status === 'SENT' || r.status === 'IN_PROGRESS' || r.status === 'REACHED_FACILITY');
-  }, [referrals]);
+    return list;
+  };
 
-  const primaryPatientRef = referrals[0] || null;
+  const renderTopStats = () => (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {[
+        { label: activeTabRole === 'facility' ? 'Total Inbound' : 'Total Referrals', val: stats.total, color: 'text-[#0b2b82]' },
+        { label: 'Pending', val: stats.pending, color: 'text-orange-500' },
+        { label: 'Rejected', val: stats.rejected, color: 'text-rose-500' },
+        { label: 'Completed', val: stats.completed, color: 'text-emerald-500' }
+      ].map((s, i) => (
+        <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{s.label}</p>
+          <span className={`text-3xl font-black ${s.color}`}>{s.val}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderTrackingBoard = (title) => (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+      <div className="p-6 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50">
+        <h2 className="text-lg font-black text-slate-800">{title}</h2>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex bg-white rounded-xl border border-slate-200 p-1 shadow-sm shrink-0">
+            {['ALL', 'PENDING', 'COMPLETED', 'REJECTED'].map(f => (
+              <button
+                key={f}
+                onClick={() => setStatusFilter(f)}
+                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                  statusFilter === f ? 'bg-[#0b2b82] text-white' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <input
+            type="text"
+            placeholder="Search ID or Name..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full md:w-64 px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#0b2b82]"
+          />
+        </div>
+      </div>
+      <div className="p-6 bg-slate-50/50">
+        {getFilteredReferrals().length === 0 ? (
+          <div className="text-center py-12"><p className="text-slate-500 font-medium">No referrals found.</p></div>
+        ) : (
+          getFilteredReferrals().map(r => <PatientReferralCard key={r.referralId} refData={r} activeTabRole={activeTabRole} handleUpdateStatus={handleUpdateStatus} />)
+        )}
+      </div>
+    </div>
+  );
+
+  const renderDoctorView = () => (
+    <>
+      {renderTopStats()}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-4">
+           <h2 className="text-lg font-black text-slate-800">Recent Successful Referrals</h2>
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <table className="w-full text-sm text-left">
+             <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs tracking-wider">
+               <tr><th className="px-6 py-4">Patient Name</th><th className="px-6 py-4">Date</th><th className="px-6 py-4">Destination</th></tr>
+             </thead>
+             <tbody className="divide-y divide-slate-100">
+               {referrals.filter(r => r.status === 'COMPLETED').slice(0,3).map(r => (
+                 <tr key={r.referralId} className="hover:bg-slate-50">
+                   <td className="px-6 py-4 font-bold text-slate-800">{r.patientName}</td>
+                   <td className="px-6 py-4 text-slate-500">{new Date(r.createdAt).toLocaleDateString()}</td>
+                   <td className="px-6 py-4 text-slate-600">{r.receivingFacilityName}</td>
+                 </tr>
+               ))}
+               {referrals.filter(r => r.status === 'COMPLETED').length === 0 && (
+                 <tr><td colSpan="3" className="px-6 py-8 text-center text-slate-500">No recent successful referrals.</td></tr>
+               )}
+             </tbody>
+          </table>
+        </div>
+      </div>
+      {renderTrackingBoard("Doctor Referral Tracking Board")}
+    </>
+  );
+
+  const renderFacilityView = () => (
+    <>
+      {renderTopStats()}
+      {renderTrackingBoard("Inbound Referral Queue")}
+    </>
+  );
+
+  const renderPatientView = () => {
+    // Assuming logged-in patient is Arjun Mehta for this mockup
+    const loggedInPatientName = 'Arjun Mehta';
+    
+    // 1. Show only my referrals
+    const myReferrals = referrals.filter(r => r.patientName === loggedInPatientName);
+    
+    // Sort by date descending
+    const sorted = [...myReferrals].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    // 2. Divide into Current and Earlier
+    // Current = not completed and not rejected (i.e. active)
+    const currentReferrals = sorted.filter(r => r.status !== 'COMPLETED' && r.status !== 'REJECTED');
+    // Earlier = completed or rejected
+    const earlierReferrals = sorted.filter(r => r.status === 'COMPLETED' || r.status === 'REJECTED');
+    
+    const primaryReferral = sorted.length > 0 ? sorted[0] : null;
+
+    return (
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-xl font-black text-[#0b2b82] mb-4">Patient Referral Card</h2>
+          <PatientViewReferralCard refData={primaryReferral} />
+        </div>
+
+        <div>
+          <h2 className="text-lg font-black text-slate-800 mb-4">Current Referral Status</h2>
+          {currentReferrals.length > 0 ? (
+             <div className="space-y-4">
+               {currentReferrals.map(r => (
+                 <PatientReferralCard key={r.referralId} refData={r} activeTabRole={activeTabRole} handleUpdateStatus={handleUpdateStatus} />
+               ))}
+             </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-slate-500">No active referrals at this moment.</div>
+          )}
+        </div>
+
+        <div>
+          <h2 className="text-lg font-black text-slate-800 mb-4">Earlier Referral History</h2>
+          {earlierReferrals.length > 0 ? (
+             <div className="space-y-4">
+               {earlierReferrals.map(r => (
+                 <PatientReferralCard key={r.referralId} refData={r} activeTabRole={activeTabRole} handleUpdateStatus={handleUpdateStatus} />
+               ))}
+             </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-slate-500">No previous referral history found.</div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="space-y-6 pb-12">
-      <div className="bg-white rounded-2xl p-2 border border-slate-200 shadow-sm flex items-center gap-2 mb-4 overflow-x-auto">
-        {['Create New Referral', 'Manage Referrals', 'View Analytics', 'Overview'].map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => {
-              if (tab === 'Create New Referral') {
-                setShowCreateModal(true);
-              } else {
-                setSystemTab(tab);
-              }
-            }}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${systemTab === tab
-              ? 'bg-[#0b2b82] text-white shadow-md shadow-[#0b2b82]/25'
-              : 'text-slate-600 hover:bg-slate-100'
-              }`}
-          >
-            {tab}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={onBackToHome}
-          className="ml-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors whitespace-nowrap"
-        >
-          🏠 Home
-        </button>
+    <div className="flex flex-col h-full bg-[#f8fafc]">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between sticky top-0 z-20">
+        <div>
+          <h1 className="text-2xl font-black text-[#0b2b82] tracking-tight flex items-center gap-3">
+            <button onClick={onBackToHome} className="text-slate-400 hover:text-[#0b2b82]"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg></button>
+            {activeTabRole === 'patient' ? 'My Referrals' : 'NexusMind Referral Network'} {activeTabRole !== 'patient' && <span className="text-blue-500 font-bold text-lg">v2</span>}
+          </h1>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex bg-slate-100 rounded-xl p-1">
+            {['doctor', 'facility', 'patient'].map((r) => (
+              <button key={r} onClick={() => { setActiveTabRole(r); setActorRole && setActorRole(r); }}
+                className={`px-5 py-2 text-sm font-bold rounded-lg capitalize transition-all ${activeTabRole === r ? 'bg-white text-[#0b2b82] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+                {r} View
+              </button>
+            ))}
+          </div>
+          {activeTabRole === 'doctor' && (
+            <button onClick={() => setShowCreateWizard(true)} className="px-6 py-2.5 bg-[#0b2b82] text-white font-bold text-sm rounded-xl hover:bg-blue-800 shadow-md shadow-[#0b2b82]/20 transition-all">
+              Create New Referral
+            </button>
+          )}
+        </div>
       </div>
 
-      {systemTab === 'Overview' && (
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-          {/* Left Column: Doctor Referral Tracking Board */}
-          <div className="xl:col-span-8 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col min-h-[500px]">
-            <div className="mb-4">
-              <h3 className="text-lg font-black text-slate-900">Doctor Referral Tracking Board</h3>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap mb-4">
-              <input
-                type="text"
-                placeholder="Search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="text-xs border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:ring-2 focus:ring-emerald-500 w-full sm:w-auto flex-1 max-w-[200px]"
-              />
-
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold flex-wrap overflow-x-auto">
-                {['ALL', 'CREATED', 'CANCELLED', 'COMPLETED'].map((st) => (
-                  <button
-                    key={st}
-                    type="button"
-                    onClick={() => setStatusFilter(st)}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-extrabold transition-all ${statusFilter === st ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                  >
-                    {st === 'ALL' ? 'All' : st.replace('_', ' ')}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="overflow-x-auto flex-1">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    <th className="py-3 px-2">Referral ID</th>
-                    <th className="py-3 px-2">Patient</th>
-                    <th className="py-3 px-2">Destination</th>
-                    <th className="py-3 px-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {filteredReferrals.map((ref) => (
-                    <tr key={ref.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-2 font-mono font-black text-emerald-800">
-                        {ref.referralId}
-                      </td>
-                      <td className="py-3 px-2">
-                        <div className="font-bold text-slate-900">{ref.patientName}</div>
-                      </td>
-                      <td className="py-3 px-2">
-                        <div className="font-bold text-slate-800">{ref.receivingFacilityName}</div>
-                      </td>
-                      <td className="py-3 px-2">
-                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${ref.status === 'CREATED' ? 'bg-slate-100 text-slate-700' :
-                          ref.status === 'SENT' ? 'bg-amber-100 text-amber-800' :
-                            ref.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                              ref.status === 'REACHED_FACILITY' ? 'bg-purple-100 text-purple-800' :
-                                ref.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
-                                  'bg-red-100 text-red-800'
-                          }`}>
-                          {ref.status.replace('_', ' ')}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Right Column: KPIs and Recent Successful Referrals */}
-          <div className="xl:col-span-4 space-y-6 flex flex-col">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center text-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Total Referrals</span>
-                <div className="text-2xl font-black text-slate-900">{stats.total}</div>
-              </div>
-              <div className="bg-white rounded-2xl p-4 border border-amber-200 bg-amber-50/20 shadow-sm flex flex-col justify-center text-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 mb-1">Pending Actions</span>
-                <div className="text-2xl font-black text-amber-600">{stats.pending}</div>
-              </div>
-              <div className="bg-white rounded-2xl p-4 border border-blue-200 bg-blue-50/20 shadow-sm flex flex-col justify-center text-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 mb-1">In Transit / Reached</span>
-                <div className="text-2xl font-black text-blue-600">{stats.inProgress}</div>
-              </div>
-              <div className="bg-white rounded-2xl p-4 border border-emerald-200 bg-emerald-50/20 shadow-sm flex flex-col justify-center text-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-1">Care Completed</span>
-                <div className="text-2xl font-black text-emerald-600">{stats.completed}</div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex-1 flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-black text-slate-900 leading-tight">Recent Successful<br />Referrals</h3>
-                <button className="text-[10px] font-bold text-[#0b2b82] hover:underline">View All</button>
-              </div>
-              <div className="space-y-3 overflow-y-auto max-h-[300px]">
-                {referrals.filter(r => r.status === 'COMPLETED').slice(0, 3).map(r => (
-                  <div key={r.id} className="p-3 border border-slate-100 rounded-xl bg-slate-50 flex flex-col gap-1">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-xs text-slate-800">{r.patientName}</span>
-                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-md">COMPLETED</span>
-                    </div>
-                    <span className="text-[10px] text-slate-500">To: {r.receivingFacilityName}</span>
-                  </div>
-                ))}
-                {referrals.filter(r => r.status === 'COMPLETED').length === 0 && (
-                  <div className="text-xs text-slate-400 italic">No recent successful referrals.</div>
-                )}
-              </div>
-            </div>
-          </div>
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-6xl mx-auto">
+          {activeTabRole === 'doctor' && renderDoctorView()}
+          {activeTabRole === 'facility' && renderFacilityView()}
+          {activeTabRole === 'patient' && renderPatientView()}
         </div>
-      )}
+      </div>
 
-      {systemTab !== 'Overview' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200 shadow-sm flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase">
-                  Feature Map 03 &bull; Closed-Loop Referral
-                </span>
-                <span className="text-xs font-mono font-bold text-slate-400">REF-TRACKER v2.0</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-slate-900">Smart Referral Management System</h2>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-                Digitally manages and tracks patient referrals from doctor creation to ASHA follow-up, facility intake, and completed care.
-              </p>
+      {/* 3-Step Wizard Modal for Doctor */}
+      {showCreateWizard && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h2 className="text-xl font-black text-slate-800">Create New Referral</h2>
+              <button onClick={() => setShowCreateWizard(false)} className="text-slate-400 hover:text-slate-700"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
-          </div>
-
-          {/* Role View Selector Tabs */}
-          <div className="bg-white rounded-2xl p-2 border border-slate-200 shadow-sm flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {[
-                { id: 'doctor', label: '👨‍⚕️ Referring Doctor View' },
-                { id: 'worker', label: '👩‍⚕️ ASHA Action Center' },
-                { id: 'facility', label: '🏥 Receiving Facility View' },
-                { id: 'patient', label: '👤 Patient Referral Pass' }
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveTabRole(t.id);
-                    setActorRole(t.id);
-                  }}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${activeTabRole === t.id
-                    ? 'bg-[#0b2b82] text-white shadow-md shadow-[#0b2b82]/25'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
-                    }`}
-                >
-                  <span>{t.label}</span>
-                </button>
+            
+            <div className="flex border-b border-slate-100">
+              {['1. Patient Details', '2. Choose Hospital', '3. Check & Send'].map((step, i) => (
+                <div key={i} className={`flex-1 py-4 text-center text-sm font-bold border-b-4 transition-colors ${wizardStep === i+1 ? 'border-[#0b2b82] text-[#0b2b82]' : 'border-transparent text-slate-400'}`}>
+                  {step}
+                </div>
               ))}
             </div>
 
-            <div className="px-3 py-1 bg-emerald-50 text-emerald-800 text-[11px] font-extrabold rounded-lg border border-emerald-200">
-              Active Role: {activeTabRole.toUpperCase()}
-            </div>
-          </div>
-
-          {/* 4 KPI METRIC CARDS */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Total Referrals</span>
-              <div className="text-3xl font-black text-slate-900 mt-1">{stats.total}</div>
-              <span className="text-[10px] text-slate-400 font-medium">Across all health corridors</span>
-            </div>
-
-            <div className="bg-white rounded-2xl p-5 border border-amber-200 bg-amber-50/20 shadow-sm">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 block">Pending Action</span>
-              <div className="text-3xl font-black text-amber-600 mt-1">{stats.pending}</div>
-              <span className="text-[10px] text-amber-600/80 font-medium">CREATED or SENT state</span>
-            </div>
-
-            <div className="bg-white rounded-2xl p-5 border border-blue-200 bg-blue-50/20 shadow-sm">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 block">In Transit / Reached</span>
-              <div className="text-3xl font-black text-blue-600 mt-1">{stats.inProgress}</div>
-              <span className="text-[10px] text-blue-600/80 font-medium">ASHA active follow-up</span>
-            </div>
-
-            <div className="bg-white rounded-2xl p-5 border border-emerald-200 bg-emerald-50/20 shadow-sm">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 block">Care Completed</span>
-              <div className="text-3xl font-black text-emerald-600 mt-1">{stats.completed}</div>
-              <span className="text-[10px] text-emerald-600/80 font-medium">Verified consultation finished</span>
-            </div>
-          </div>
-
-          {/* VIEW 1: DOCTOR DASHBOARD */}
-          {activeTabRole === 'doctor' && (
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
-              <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-100">
-                <div>
-                  <h3 className="text-lg font-black text-slate-900">Doctor Referral Tracking Board</h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    Monitor referral lifecycles, dispatch newly created referrals, and inspect audit logs.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <input
-                    type="text"
-                    placeholder="Search patient, ID, facility..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="text-xs border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:ring-2 focus:ring-emerald-500 w-48 sm:w-60"
-                  />
-
-                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold flex-wrap">
-                    {['ALL', 'CREATED', 'SENT', 'IN_PROGRESS', 'REACHED_FACILITY', 'COMPLETED', 'CANCELLED'].map((st) => (
-                      <button
-                        key={st}
-                        type="button"
-                        onClick={() => setStatusFilter(st)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all ${statusFilter === st ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                          }`}
-                      >
-                        {st === 'ALL' ? 'All' : st.replace('_', ' ')}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Referral Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 bg-slate-50/50">
-                      <th className="py-3 px-3">Referral ID</th>
-                      <th className="py-3 px-3">Patient</th>
-                      <th className="py-3 px-3">Specialty &amp; Reason</th>
-                      <th className="py-3 px-3">Receiving Destination</th>
-                      <th className="py-3 px-3">Status</th>
-                      <th className="py-3 px-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
-                    {filteredReferrals.map((ref) => (
-                      <tr key={ref.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3.5 px-3 font-mono font-black text-emerald-800 text-xs">
-                          {ref.referralId}
-                        </td>
-                        <td className="py-3.5 px-3">
-                          <div className="font-bold text-slate-900">{ref.patientName}</div>
-                          <div className="text-[11px] text-slate-400">{ref.patientAge}y &bull; {ref.patientSex} &bull; {ref.patientLocation}</div>
-                        </td>
-                        <td className="py-3.5 px-3">
-                          <div className="font-bold text-slate-800">{ref.specialty}</div>
-                          <div className="text-[11px] text-slate-500 line-clamp-1">{ref.reason}</div>
-                        </td>
-                        <td className="py-3.5 px-3">
-                          <div className="font-bold text-slate-800">{ref.receivingFacilityName}</div>
-                          <div className="text-[10px] text-slate-400">From: {ref.referringFacilityName}</div>
-                        </td>
-                        <td className="py-3.5 px-3">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${ref.status === 'CREATED'
-                              ? 'bg-slate-100 text-slate-700'
-                              : ref.status === 'SENT'
-                                ? 'bg-amber-100 text-amber-800'
-                                : ref.status === 'IN_PROGRESS'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : ref.status === 'REACHED_FACILITY'
-                                    ? 'bg-purple-100 text-purple-800'
-                                    : ref.status === 'COMPLETED'
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : 'bg-red-100 text-red-800'
-                              }`}
-                          >
-                            {ref.status.replace('_', ' ')}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-3 text-right space-x-1.5 whitespace-nowrap">
-                          {ref.status === 'CREATED' && (
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateStatus(ref, 'SENT', 'Doctor transmitted referral to destination facility.')}
-                              className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-bold shadow-sm"
-                            >
-                              Dispatch (Send)
-                            </button>
-                          )}
-                          {(ref.status === 'CREATED' || ref.status === 'SENT') && (
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateStatus(ref, 'CANCELLED', 'Doctor cancelled referral: patient clinical condition reassessed.')}
-                              className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition-colors"
-                            >
-                              Cancel Referral ✕
-                            </button>
-                          )}
-                          {ref.status === 'CANCELLED' && (
-                            <span className="text-[11px] font-bold text-rose-600 italic mr-1">Cancelled</span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenTimeline(ref)}
-                            className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold"
-                          >
-                            Timeline 📜
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDeleteModal(ref)}
-                            className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200 rounded-lg text-[11px] font-bold transition-colors"
-                            title="Delete this referral"
-                          >
-                            Delete 🗑️
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* VIEW 2: FRONTLINE WORKER (ASHA) ACTION CENTER */}
-          {activeTabRole === 'worker' && (
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-6">
-              <div className="bg-amber-500/10 border border-amber-300 rounded-2xl p-5 flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
-                    <h3 className="text-base font-black text-amber-900">ASHA Pending Follow-Up Queue</h3>
-                  </div>
-                  <p className="text-xs text-amber-800 font-medium mt-1">
-                    {pendingWorkerReferrals.length} patient(s) have active referrals requiring ground follow-up and transport coordination.
-                    Update their status once contacted or when they reach the hospital.
-                  </p>
-                </div>
-                <span className="text-2xl font-black text-amber-800">{pendingWorkerReferrals.length}</span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {pendingWorkerReferrals.map((ref, idx) => (
-                  <div
-                    key={ref.id}
-                    className={`p-5 rounded-2xl border transition-all space-y-3 ${idx === 1 || ref.status === 'IN_PROGRESS'
-                      ? 'border-[#0b2b82]/30 hover:border-[#0b2b82]/60 bg-[#0b2b82]/5 hover:bg-[#0b2b82]/10 shadow-sm'
-                      : 'border-slate-200 hover:border-slate-300 bg-slate-50/50 hover:bg-white'
-                      }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded">
-                        {ref.referralId}
-                      </span>
-                      <span
-                        className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${ref.status === 'IN_PROGRESS'
-                          ? 'bg-[#0b2b82]/15 text-[#0b2b82] border border-[#0b2b82]/30'
-                          : ref.status === 'SENT'
-                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                            : 'bg-slate-100 text-slate-700 border border-slate-200'
-                          }`}
-                      >
-                        {ref.status.replace('_', ' ')}
-                      </span>
-                    </div>
-
-                    <div>
-                      <h4 className="font-extrabold text-slate-900 text-sm">{ref.patientName} ({ref.patientAge}y, {ref.patientSex})</h4>
-                      <p className="text-xs text-slate-500">Location: {ref.patientLocation} &bull; Phone: {ref.patientPhone || 'N/A'}</p>
-                    </div>
-
-                    <div className="bg-white p-3 rounded-xl border border-slate-200/80 text-xs space-y-1">
-                      <div><strong className="text-slate-700">Department:</strong> {ref.specialty}</div>
-                      <div><strong className="text-slate-700">Destination:</strong> {ref.receivingFacilityName}</div>
-                      <div><strong className="text-slate-700">Reason:</strong> {ref.reason}</div>
-                    </div>
-
-                    <div className="pt-2 flex items-center gap-2 flex-wrap">
-                      {ref.status === 'CREATED' && (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus(ref, 'SENT', 'ASHA acknowledged and initiated transport coordination.')}
-                          className="flex-1 py-2.5 bg-[#0b2b82] hover:bg-[#071a4f] text-white rounded-xl text-xs font-bold shadow-md shadow-[#0b2b82]/25 transition-all flex items-center justify-center gap-1.5"
-                        >
-                          <span>📨</span>
-                          <span>Acknowledge &amp; Dispatch</span>
-                        </button>
-                      )}
-
-                      {ref.status === 'SENT' && (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus(ref, 'IN_PROGRESS', 'ASHA contacted patient; transport en route.')}
-                          className="flex-1 py-2.5 bg-[#0b2b82] hover:bg-[#071a4f] text-white rounded-xl text-xs font-bold shadow-md shadow-[#0b2b82]/25 transition-all flex items-center justify-center gap-1.5"
-                        >
-                          <span>📞</span>
-                          <span>Patient Contacted / En Route</span>
-                        </button>
-                      )}
-
-                      {ref.status === 'IN_PROGRESS' && (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus(ref, 'REACHED_FACILITY', 'ASHA confirmed patient arrived at hospital gate/OPD desk.')}
-                          className="flex-1 py-2.5 bg-[#0b2b82] hover:bg-[#071a4f] text-white rounded-xl text-xs font-bold shadow-md shadow-[#0b2b82]/25 transition-all flex items-center justify-center gap-1.5"
-                        >
-                          <span>🏥</span>
-                          <span>Confirm Patient Reached Hospital</span>
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => handleOpenTimeline(ref)}
-                        className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
-                      >
-                        History
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* VIEW 3: RECEIVING FACILITY INTAKE VIEW */}
-          {activeTabRole === 'facility' && (
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-6">
-              <div>
-                <h3 className="text-lg font-black text-slate-900">Receiving Facility Intake &amp; Care Completion</h3>
-                <p className="text-xs text-slate-500 font-medium">
-                  Incoming referrals designated for Sheikh Bhikhari Medical College &amp; District Hospitals.
-                  Confirm patient arrival and finalize care when specialist consultation completes.
-                </p>
-              </div>
-
-              <div className="divide-y divide-slate-100">
-                {incomingFacilityReferrals.map((ref) => (
-                  <div key={ref.id} className="py-4 flex items-center justify-between flex-wrap gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-emerald-800 text-xs">{ref.referralId}</span>
-                        <span className="font-bold text-slate-900 text-sm">&bull; {ref.patientName} ({ref.patientAge}y)</span>
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                          {ref.status.replace('_', ' ')}
-                        </span>
+            <div className="p-8 overflow-y-auto flex-1 bg-slate-50">
+               {wizardStep === 1 && (
+                 <div className="space-y-6 animate-fade-in">
+                   <div className="grid grid-cols-2 gap-6">
+                     <div>
+                       <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Patient ID Lookup (ABDM/UHID)</label>
+                       <input type="text" value={formData.patientId} className="w-full border border-slate-300 rounded-xl p-3 font-medium" readOnly />
+                     </div>
+                     <div>
+                       <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Urgency</label>
+                       <select value={formData.urgency} onChange={e => setFormData({...formData, urgency: e.target.value})} className="w-full border border-slate-300 rounded-xl p-3 font-medium bg-white">
+                         <option>Emergency</option><option>Urgent</option><option>Normal</option>
+                       </select>
+                     </div>
+                   </div>
+                   <div>
+                     <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Department Needed</label>
+                     <input type="text" value={formData.departmentReferredTo} onChange={e => setFormData({...formData, departmentReferredTo: e.target.value})} className="w-full border border-slate-300 rounded-xl p-3 font-medium" />
+                   </div>
+                   <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-xl border border-purple-100">
+                     <input type="checkbox" id="icu" checked={formData.icuPatient} onChange={e => setFormData({...formData, icuPatient: e.target.checked})} className="w-5 h-5 rounded border-purple-300 text-purple-600 focus:ring-purple-500"/>
+                     <label htmlFor="icu" className="font-bold text-purple-900">Patient requires ICU Bed</label>
+                   </div>
+                   <div>
+                     <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Digital Signature</label>
+                     <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => setFormData({...formData, digitalSignature: { doctorName: 'Dr. Priya Sharma', signedAt: new Date().toISOString(), imageOrInitialsSVG: 'P.S.' }})}>
+                       {formData.digitalSignature ? <span className="font-serif text-2xl italic text-[#0b2b82]">Signed by {formData.digitalSignature.doctorName}</span> : <span className="text-slate-500 font-medium">Click to apply Digital Signature</span>}
+                     </div>
+                   </div>
+                 </div>
+               )}
+               {wizardStep === 2 && (
+                 <div className="space-y-4 animate-fade-in">
+                   <p className="text-slate-600 font-medium mb-4">Select destination facility based on live data:</p>
+                   <div className="bg-white p-5 rounded-2xl border-2 border-[#0b2b82] shadow-md relative cursor-pointer">
+                      <div className="absolute -top-3 right-4 bg-emerald-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full tracking-wider">Best Match</div>
+                      <h3 className="text-lg font-black text-slate-800 mb-2">Sheikh Bhikhari Medical College & Hospital</h3>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                         <div><span className="block text-xs text-slate-400 font-bold mb-1">Distance</span><span className="font-bold text-slate-700">12 km (25 min ETA)</span></div>
+                         <div><span className="block text-xs text-slate-400 font-bold mb-1">Dept Match</span><span className="font-bold text-emerald-600">Yes (Cardiology)</span></div>
+                         <div><span className="block text-xs text-slate-400 font-bold mb-1">Live ICU Beds</span><span className="font-bold text-slate-700">4 Available</span></div>
                       </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Specialty: <strong className="text-slate-700">{ref.specialty}</strong> &bull; Reason: {ref.reason}
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">Referred by: {ref.referringDoctorName} ({ref.referringFacilityName})</p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {ref.status !== 'REACHED_FACILITY' && (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus(ref, 'REACHED_FACILITY', 'Facility reception desk checked in patient.')}
-                          className="px-4 py-2 bg-[#0b2b82] hover:bg-[#071a4f] text-white font-bold text-xs rounded-xl shadow-md shadow-[#0b2b82]/25 transition-all"
-                        >
-                          📥 Check-In Patient Arrival
-                        </button>
-                      )}
-
-                      {ref.status === 'REACHED_FACILITY' && (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus(ref, 'COMPLETED', 'Consultation & clinical evaluation completed. Patient discharged/admitted.')}
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm"
-                        >
-                          ✅ Complete Care &amp; Consultation
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => handleOpenTimeline(ref)}
-                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
-                      >
-                        Audit Log
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                   </div>
+                 </div>
+               )}
+               {wizardStep === 3 && (
+                 <div className="animate-fade-in text-center py-10">
+                   <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                     <svg className="w-10 h-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+                   </div>
+                   <h3 className="text-2xl font-black text-slate-800 mb-2">Ready to Send</h3>
+                   <p className="text-slate-600 font-medium">Referral for {formData.patientName} to SBMC&H will be initiated.</p>
+                 </div>
+               )}
             </div>
-          )}
-
-          {/* VIEW 4: PATIENT REFERRAL PASS */}
-          {activeTabRole === 'patient' && primaryPatientRef && (
-            <div className="max-w-2xl mx-auto bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-              <div className="border-2 border-dashed border-emerald-500/40 rounded-2xl p-6 bg-emerald-50/20">
-                <div className="flex items-center justify-between border-b border-emerald-200/60 pb-4 mb-4">
-                  <div>
-                    <span className="text-[10px] font-extrabold tracking-widest text-emerald-800 uppercase bg-emerald-100 px-2.5 py-0.5 rounded">
-                      Official Digital Referral Pass
-                    </span>
-                    <h3 className="text-xl font-black text-slate-900 mt-1">{primaryPatientRef.patientName}</h3>
-                    <p className="text-xs text-slate-500">Age: {primaryPatientRef.patientAge} &bull; Destination: {primaryPatientRef.receivingFacilityName}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs font-mono font-bold text-slate-400">REFERRAL ID</div>
-                    <div className="text-sm font-black text-emerald-800 font-mono">{primaryPatientRef.referralId}</div>
-                  </div>
-                </div>
-
-                {/* 4-Step Patient Stepper */}
-                <div className="py-4">
-                  <div className="flex items-center justify-between text-center relative">
-                    <div className="absolute top-3 left-6 right-6 h-0.5 bg-slate-200 -z-0"></div>
-                    {[
-                      { step: 'CREATED', label: '1. Created', icon: '📝' },
-                      { step: 'SENT', label: '2. Sent', icon: '📨' },
-                      { step: 'REACHED_FACILITY', label: '3. Reached Hospital', icon: '🏥' },
-                      { step: 'COMPLETED', label: '4. Care Completed', icon: '✅' }
-                    ].map((s, idx) => {
-                      const isDone =
-                        (s.step === 'CREATED') ||
-                        (s.step === 'SENT' && primaryPatientRef.status !== 'CREATED') ||
-                        (s.step === 'REACHED_FACILITY' && (primaryPatientRef.status === 'REACHED_FACILITY' || primaryPatientRef.status === 'COMPLETED')) ||
-                        (s.step === 'COMPLETED' && primaryPatientRef.status === 'COMPLETED');
-
-                      return (
-                        <div key={idx} className="relative z-10 flex flex-col items-center">
-                          <div
-                            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${isDone ? 'bg-emerald-600 text-white' : 'bg-white border-2 border-slate-300 text-slate-400'
-                              }`}
-                          >
-                            {isDone ? '✓' : idx + 1}
-                          </div>
-                          <span className="text-[10px] font-bold text-slate-700 mt-1.5">{s.label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="space-y-3 text-xs bg-white p-4 rounded-xl border border-slate-200 mt-4">
-                  <div>
-                    <span className="text-slate-400 uppercase font-bold text-[10px] block">Required Specialty</span>
-                    <strong className="text-slate-900 text-sm font-black">{primaryPatientRef.specialty}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 uppercase font-bold text-[10px] block">Clinical Reason</span>
-                    <p className="text-slate-700 font-medium">{primaryPatientRef.reason}</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 uppercase font-bold text-[10px] block">Emergency Destination Hospital</span>
-                    <strong className="text-slate-900 font-extrabold">{primaryPatientRef.receivingFacilityName}</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-        </div>
-      )}
-
-      {/* TIMELINE AUDIT DRAWER MODAL */}
-      {selectedTimelineRef && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded">
-                  {selectedTimelineRef.referralId}
-                </span>
-                <h3 className="text-lg font-black text-slate-900 mt-1">Referral Journey &amp; Audit Trail</h3>
-                <p className="text-xs text-slate-500">Patient: {selectedTimelineRef.patientName} &bull; {selectedTimelineRef.specialty}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedTimelineRef(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center font-bold text-sm"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-              {timelineLogs.map((log, idx) => (
-                <div key={idx} className="flex items-start gap-3 relative">
-                  <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs shrink-0 mt-0.5">
-                    {idx + 1}
-                  </div>
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 flex-1 text-xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-black text-slate-900 uppercase text-[11px]">
-                        {log.fromStatus ? `${log.fromStatus} → ${log.toStatus}` : log.toStatus}
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-400">
-                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <p className="text-slate-700 font-medium">{log.remarks}</p>
-                    <div className="text-[10px] text-slate-400 font-semibold">
-                      Updated by: <strong className="text-slate-600">{log.updatedBy}</strong> ({log.userRole})
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              {activeTabRole === 'doctor' && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenDeleteModal(selectedTimelineRef)}
-                  className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-colors"
-                >
-                  Delete Referral 🗑️
-                </button>
+            <div className="px-8 py-5 border-t border-slate-200 flex justify-between bg-white items-center">
+              {wizardStep > 1 ? (
+                <button onClick={() => setWizardStep(w => w - 1)} className="px-6 py-2.5 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-all">Back</button>
+              ) : <div></div>}
+              {wizardStep < 3 ? (
+                <button onClick={() => { if(wizardStep===1 && !formData.digitalSignature) alert('Signature required'); else setWizardStep(w => w + 1); }} className="px-8 py-2.5 bg-[#0b2b82] text-white font-bold rounded-xl shadow-md hover:bg-blue-800 transition-all">Next Step</button>
+              ) : (
+                <button onClick={handleCreateSubmit} className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-md hover:bg-emerald-700 transition-all">Send Referral</button>
               )}
-              <button
-                type="button"
-                onClick={() => setSelectedTimelineRef(null)}
-                className="px-5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold ml-auto"
-              >
-                Close Audit Timeline
-              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* CREATE REFERRAL MODAL */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-5 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded">
-                  Doctor Referral Form
-                </span>
-                <h3 className="text-xl font-black text-slate-900 mt-1">Create Digital Clinical Referral</h3>
-                <p className="text-xs text-slate-500">Pre-filled from Smart Care Navigator &amp; Verified Hospital Destination</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center font-bold text-sm"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Patient Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.patientName}
-                    onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl p-2.5 font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Patient Age &amp; Sex</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      required
-                      value={formData.patientAge}
-                      onChange={(e) => setFormData({ ...formData, patientAge: Number(e.target.value) })}
-                      className="w-24 border border-slate-200 rounded-xl p-2.5 font-medium"
-                    />
-                    <select
-                      value={formData.patientSex}
-                      onChange={(e) => setFormData({ ...formData, patientSex: e.target.value })}
-                      className="flex-1 border border-slate-200 rounded-xl p-2.5 font-medium"
-                    >
-                      <option value="female">Female</option>
-                      <option value="male">Male</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Referring Doctor &amp; Facility</label>
-                  <select
-                    value={isCustomReferringDoctor ? 'custom' : selectedDoctorOptionId}
-                    onChange={(e) => {
-                      const selId = e.target.value;
-                      if (selId === 'custom') {
-                        setIsCustomReferringDoctor(true);
-                        setSelectedDoctorOptionId('custom');
-                        setFormData({
-                          ...formData,
-                          referringDoctorId: 'doc_custom',
-                          referringFacilityId: 'fac_custom'
-                        });
-                      } else {
-                        setIsCustomReferringDoctor(false);
-                        setSelectedDoctorOptionId(selId);
-                        const match = REFERRING_DOCTOR_FACILITY_OPTIONS.find((opt) => opt.id === selId);
-                        if (match) {
-                          setFormData({
-                            ...formData,
-                            referringDoctorId: match.id,
-                            referringDoctorName: match.doctorName,
-                            referringFacilityId: match.facilityId,
-                            referringFacilityName: match.facilityName
-                          });
-                        }
-                      }
-                    }}
-                    className="w-full border border-slate-200 rounded-xl p-2.5 font-bold text-slate-900 bg-white focus:ring-2 focus:ring-emerald-500 shadow-sm"
-                  >
-                    <optgroup label="Primary Health Centres (PHC)">
-                      {REFERRING_DOCTOR_FACILITY_OPTIONS.filter((d) => d.facilityType === 'PHC').map((doc) => (
-                        <option key={doc.id} value={doc.id}>
-                          {doc.doctorName} &bull; {doc.facilityName} ({doc.specialty})
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Community Health Centres (CHC)">
-                      {REFERRING_DOCTOR_FACILITY_OPTIONS.filter((d) => d.facilityType === 'CHC').map((doc) => (
-                        <option key={doc.id} value={doc.id}>
-                          {doc.doctorName} &bull; {doc.facilityName} ({doc.specialty})
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="District &amp; Sub-Divisional Hospitals">
-                      {REFERRING_DOCTOR_FACILITY_OPTIONS.filter((d) => d.facilityType === 'HOSPITAL').map((doc) => (
-                        <option key={doc.id} value={doc.id}>
-                          {doc.doctorName} &bull; {doc.facilityName} ({doc.specialty})
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Specialized &amp; Regional Facilities">
-                      {REFERRING_DOCTOR_FACILITY_OPTIONS.filter((d) => d.facilityType === 'OTHER').map((doc) => (
-                        <option key={doc.id} value={doc.id}>
-                          {doc.doctorName} &bull; {doc.facilityName} ({doc.specialty})
-                        </option>
-                      ))}
-                    </optgroup>
-                    <option value="custom">➕ Enter Custom Doctor &amp; Facility...</option>
-                  </select>
-
-                  {/* Custom Doctor & Facility Input Fields */}
-                  {isCustomReferringDoctor ? (
-                    <div className="mt-2.5 p-3 bg-emerald-50/40 rounded-xl border border-emerald-200/60 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase text-emerald-800">Custom Clinician &amp; Facility</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsCustomReferringDoctor(false);
-                            const first = REFERRING_DOCTOR_FACILITY_OPTIONS[0];
-                            setSelectedDoctorOptionId(first.id);
-                            setFormData({
-                              ...formData,
-                              referringDoctorId: first.id,
-                              referringDoctorName: first.doctorName,
-                              referringFacilityId: first.facilityId,
-                              referringFacilityName: first.facilityName
-                            });
-                          }}
-                          className="text-[10px] font-bold text-slate-500 hover:text-slate-800"
-                        >
-                          ✕ Reset to Presets
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Doctor Full Name</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Dr. Rajesh Kumar"
-                            value={formData.referringDoctorName}
-                            onChange={(e) => setFormData({ ...formData, referringDoctorName: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg p-2 font-medium text-xs bg-white focus:ring-1 focus:ring-emerald-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Referring Facility / Hospital</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. Barhi Sub-Divisional Hospital"
-                            value={formData.referringFacilityName}
-                            onChange={(e) => setFormData({ ...formData, referringFacilityName: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg p-2 font-medium text-xs bg-white focus:ring-1 focus:ring-emerald-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200/70">
-                      <div className="truncate">
-                        <span className="font-bold text-slate-800">👨‍⚕️ {formData.referringDoctorName}</span>
-                        <span className="mx-1 text-slate-300">&bull;</span>
-                        <span className="text-slate-600 font-medium">🏥 {formData.referringFacilityName}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsCustomReferringDoctor(true)}
-                        className="text-[10px] text-emerald-700 font-bold hover:underline shrink-0 ml-2"
-                      >
-                        Custom Edit
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">Receiving Hospital (Destination)</label>
-                  <select
-                    value={formData.receivingFacilityName}
-                    onChange={(e) => setFormData({ ...formData, receivingFacilityName: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl p-2.5 font-bold text-slate-900"
-                  >
-                    <option value="Sheikh Bhikhari Medical College & Hospital (SBMC&H)">
-                      Sheikh Bhikhari Medical College (SBMC&H) &bull; 2.8 km
-                    </option>
-                    <option value="Arogyam Multi-Specialty Hospital & Critical Care">
-                      Arogyam Multi-Specialty Hospital &bull; 4.8 km
-                    </option>
-                    <option value="Kalyani Super Specialty Hospital & Trauma Centre">
-                      Kalyani Super Specialty &amp; Trauma &bull; 38 km
-                    </option>
-                    <option value="Sadar Hospital Hazaribagh">
-                      Sadar Hospital Hazaribagh &bull; 3.2 km
-                    </option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Required Medical Specialty</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.specialty}
-                  onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl p-2.5 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Reason for Referral</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.reason}
-                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl p-2.5 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Clinical Summary &amp; Vitals</label>
-                <textarea
-                  rows="3"
-                  value={formData.clinicalSummary}
-                  onChange={(e) => setFormData({ ...formData, clinicalSummary: e.target.value })}
-                  className="w-full border border-slate-200 rounded-xl p-2.5 font-medium"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-5 py-2.5 border border-slate-200 text-slate-700 font-bold rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md"
-                >
-                  Generate Digital Referral (CREATED)
-                </button>
-              </div>
-            </form>
+      {/* Bed Modal */}
+      {showBedModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8">
+             <h3 className="text-xl font-black text-slate-800 mb-4">Reserve Bed</h3>
+             <p className="text-sm text-slate-600 font-medium mb-6">Reserving a bed holds it for the incoming patient.</p>
+             <button onClick={() => commitStatusUpdate(actionTarget.referralId, actionTarget.targetStatus, actionTarget.targetStep, { bedId: 'BED-101', ward: 'ICU', reservedAt: new Date().toISOString() }, null)} className="w-full py-3 bg-[#0b2b82] text-white font-bold rounded-xl">Confirm Reservation</button>
+             <button onClick={() => setShowBedModal(false)} className="w-full py-3 text-slate-500 font-bold rounded-xl mt-2">Cancel</button>
           </div>
         </div>
       )}
-
-      {/* UPDATE STATUS / CANCEL MODAL */}
-      {showUpdateModal && targetReferral && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div>
-              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${targetStatus === 'CANCELLED' ? 'text-rose-800 bg-rose-100' : 'text-emerald-800 bg-emerald-50'
-                }`}>
-                {targetStatus === 'CANCELLED' ? 'Cancel Referral' : 'Confirm Transition'}
-              </span>
-              <h3 className="text-lg font-black text-slate-900 mt-1">
-                {targetStatus === 'CANCELLED' ? (
-                  <>Cancel Referral: <span className="text-rose-600 font-mono">{targetReferral.referralId}</span></>
-                ) : (
-                  <>Update Status to <span className="text-emerald-700 font-mono">{targetStatus}</span></>
-                )}
-              </h3>
-              <p className="text-xs text-slate-500">Referral: {targetReferral.referralId} &bull; Patient: {targetReferral.patientName}</p>
-            </div>
-
-            <div>
-              <label className="font-bold text-slate-700 text-xs block mb-1">
-                {targetStatus === 'CANCELLED' ? 'Cancellation Reason / Clinical Justification' : 'Audit Remarks / Ground Notes'}
-              </label>
-              <textarea
-                rows="3"
-                value={statusRemarks}
-                placeholder={targetStatus === 'CANCELLED' ? 'Enter clinical rationale for cancellation...' : ''}
-                onChange={(e) => setStatusRemarks(e.target.value)}
-                className="w-full text-xs border border-slate-200 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div className="pt-2 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => setShowUpdateModal(false)}
-                className="px-4 py-2 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={confirmStatusUpdate}
-                className={`px-5 py-2 text-white text-xs font-bold rounded-xl shadow-md transition-colors ${targetStatus === 'CANCELLED'
-                  ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
-                  : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
-                  }`}
-              >
-                {targetStatus === 'CANCELLED' ? 'Confirm Cancellation ✕' : 'Confirm Status Transition'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* DELETE REFERRAL CONFIRMATION MODAL */}
-      {showDeleteModal && targetDeleteRef && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-lg font-black shrink-0">
-                🗑️
-              </div>
-              <div className="flex-1">
-                <span className="text-[10px] font-black uppercase text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200/60">
-                  Permanent Delete
-                </span>
-                <h3 className="text-lg font-black text-slate-900 mt-1">
-                  Delete Referral <span className="font-mono text-red-600">{targetDeleteRef.referralId}</span>?
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Patient: <strong className="text-slate-700">{targetDeleteRef.patientName}</strong> ({targetDeleteRef.patientAge}y &bull; {targetDeleteRef.patientSex})
-                </p>
-              </div>
-            </div>
-
-            <div className="p-3 bg-red-50/50 rounded-xl border border-red-200 text-xs space-y-1.5 text-slate-700">
-              <div>
-                <span className="text-slate-400 text-[10px] uppercase font-bold block">Destination &amp; Specialty</span>
-                <span className="font-bold text-slate-900">{targetDeleteRef.receivingFacilityName}</span> &bull; {targetDeleteRef.specialty}
-              </div>
-              <div>
-                <span className="text-slate-400 text-[10px] uppercase font-bold block">Current Status</span>
-                <span className="font-mono font-bold text-red-700">{targetDeleteRef.status}</span>
-              </div>
-              <p className="text-[11px] text-red-700/90 font-medium pt-1 border-t border-red-200/60">
-                ⚠️ Warning: This will permanently remove this referral record and its audit history from the system.
-              </p>
-            </div>
-
-            <div className="pt-2 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setTargetDeleteRef(null);
-                }}
-                disabled={isDeleting}
-                className="px-4 py-2 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50"
-              >
-                Keep Referral
-              </button>
-              <button
-                type="button"
-                onClick={confirmDeleteReferral}
-                disabled={isDeleting}
-                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md shadow-red-600/20 transition-all flex items-center gap-1.5"
-              >
-                <span>{isDeleting ? 'Deleting...' : 'Delete Referral 🗑️'}</span>
-              </button>
-            </div>
+      
+      {/* Allot Modal */}
+      {showAllotModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-md p-8">
+             <h3 className="text-xl font-black text-slate-800 mb-4">Allot Bed & Assign Doctor</h3>
+             <div className="mb-6 space-y-4">
+               <div>
+                 <label className="block text-xs font-black text-slate-500 uppercase mb-2">Treating Doctor</label>
+                 <select className="w-full border border-slate-300 rounded-xl p-3 font-medium bg-white">
+                    <option>Dr. Ankit Desai (Cardiology)</option>
+                    <option>Dr. Rakesh Singh (Neurology)</option>
+                 </select>
+               </div>
+             </div>
+             <button onClick={() => commitStatusUpdate(actionTarget.referralId, actionTarget.targetStatus, actionTarget.targetStep, null, { id: 'doc_2', name: 'Dr. Ankit Desai', specialty: 'Cardiology'})} className="w-full py-3 bg-[#0b2b82] text-white font-bold rounded-xl">Confirm Allotment</button>
+             <button onClick={() => setShowAllotModal(false)} className="w-full py-3 text-slate-500 font-bold rounded-xl mt-2">Cancel</button>
           </div>
         </div>
       )}
     </div>
   );
 }
+
+
+
+
+
 
 // ==========================================
 // --- FEATURE 04: HIGH-RISK PATIENT FOLLOW-UP SYSTEM ---

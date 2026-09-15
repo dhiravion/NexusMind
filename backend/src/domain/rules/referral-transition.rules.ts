@@ -1,20 +1,21 @@
 import type { ReferralStatus, UserRole } from '../models/referral.model.ts';
 
 export const VALID_STATUS_TRANSITIONS: Record<ReferralStatus, readonly ReferralStatus[]> = {
-  CREATED: ['SENT', 'CANCELLED'],
-  SENT: ['IN_PROGRESS', 'REACHED_FACILITY', 'CANCELLED'],
-  IN_PROGRESS: ['REACHED_FACILITY', 'CANCELLED'],
-  REACHED_FACILITY: ['COMPLETED'],
-  COMPLETED: [],
-  CANCELLED: []
+  REFERRAL_INITIATED: ['ACCEPTED', 'REJECTED'],
+  ACCEPTED: ['BED_RESERVATION'],
+  REJECTED: [],
+  BED_RESERVATION: ['PATIENT_ARRIVAL'],
+  PATIENT_ARRIVAL: ['BED_ALLOTTED'],
+  BED_ALLOTTED: ['TREATMENT_ONGOING'],
+  TREATMENT_ONGOING: ['COMPLETED'],
+  COMPLETED: []
 };
 
 export const ROLE_ALLOWED_TRANSITIONS: Record<UserRole, readonly ReferralStatus[]> = {
-  doctor: ['SENT', 'CANCELLED'],
-  worker: ['IN_PROGRESS', 'REACHED_FACILITY', 'CANCELLED'],
-  facility: ['REACHED_FACILITY', 'COMPLETED', 'CANCELLED'],
+  doctor: ['REJECTED'],
+  facility: ['ACCEPTED', 'REJECTED', 'BED_RESERVATION', 'PATIENT_ARRIVAL', 'BED_ALLOTTED', 'TREATMENT_ONGOING', 'COMPLETED'],
   patient: [],
-  admin: ['SENT', 'IN_PROGRESS', 'REACHED_FACILITY', 'COMPLETED', 'CANCELLED']
+  admin: ['ACCEPTED', 'REJECTED', 'BED_RESERVATION', 'PATIENT_ARRIVAL', 'BED_ALLOTTED', 'TREATMENT_ONGOING', 'COMPLETED']
 };
 
 export interface TransitionValidationResult {

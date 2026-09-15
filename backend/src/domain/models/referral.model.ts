@@ -1,12 +1,14 @@
 export type ReferralStatus =
-  | 'CREATED'
-  | 'SENT'
-  | 'IN_PROGRESS'
-  | 'REACHED_FACILITY'
-  | 'COMPLETED'
-  | 'CANCELLED';
+  | 'REFERRAL_INITIATED'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'BED_RESERVATION'
+  | 'PATIENT_ARRIVAL'
+  | 'BED_ALLOTTED'
+  | 'TREATMENT_ONGOING'
+  | 'COMPLETED';
 
-export type UserRole = 'doctor' | 'worker' | 'facility' | 'patient' | 'admin';
+export type UserRole = 'doctor' | 'facility' | 'patient' | 'admin';
 
 export interface ReferralStatusHistoryItem {
   readonly id: string;
@@ -34,10 +36,17 @@ export interface Referral {
   readonly referringFacilityName: string;
   readonly receivingFacilityId: string;
   readonly receivingFacilityName: string;
+  readonly departmentReferredTo: string;
   readonly specialty: string;
   readonly reason: string;
   readonly clinicalSummary: string;
-  readonly urgencyTier: 'CRITICAL' | 'URGENT' | 'ROUTINE';
+  readonly urgency: 'Emergency' | 'Urgent' | 'Normal';
+  readonly icuPatient: boolean;
+  readonly currentStep: number;
+  readonly treatingDoctor: { id: string; name: string; specialty: string } | null;
+  readonly digitalSignature: { doctorName: string; signedAt: string; imageOrInitialsSVG: string } | null;
+  readonly bedAllocation: { bedId: string; ward: string; reservedAt: string; allottedAt: string | null } | null;
+  readonly priorityRank: number;
   readonly status: ReferralStatus;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -57,10 +66,13 @@ export interface CreateReferralDto {
   readonly referringFacilityName: string;
   readonly receivingFacilityId: string;
   readonly receivingFacilityName: string;
+  readonly departmentReferredTo: string;
   readonly specialty: string;
   readonly reason: string;
   readonly clinicalSummary: string;
-  readonly urgencyTier?: 'CRITICAL' | 'URGENT' | 'ROUTINE';
+  readonly urgency?: 'Emergency' | 'Urgent' | 'Normal';
+  readonly icuPatient?: boolean;
+  readonly digitalSignature?: { doctorName: string; signedAt: string; imageOrInitialsSVG: string } | null;
 }
 
 export interface UpdateReferralStatusDto {
@@ -68,4 +80,7 @@ export interface UpdateReferralStatusDto {
   readonly updatedBy: string;
   readonly userRole: UserRole;
   readonly remarks?: string;
+  readonly treatingDoctor?: { id: string; name: string; specialty: string } | null;
+  readonly bedAllocation?: { bedId: string; ward: string; reservedAt: string; allottedAt: string | null } | null;
+  readonly currentStep?: number;
 }
